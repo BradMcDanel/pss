@@ -87,6 +87,21 @@ _C.MODEL.VIT.USE_RPB = False
 _C.MODEL.VIT.USE_SHARED_RPB = True
 _C.MODEL.VIT.USE_MEAN_POOLING = False
 
+# Masked Vision Transformer parameters
+_C.MODEL.MVIT = CN()
+_C.MODEL.MVIT.PATCH_SIZE = 16
+_C.MODEL.MVIT.IN_CHANS = 3
+_C.MODEL.MVIT.EMBED_DIM = 768
+_C.MODEL.MVIT.DEPTH = 12
+_C.MODEL.MVIT.NUM_HEADS = 12
+_C.MODEL.MVIT.MLP_RATIO = 4
+_C.MODEL.MVIT.QKV_BIAS = True
+_C.MODEL.MVIT.INIT_VALUES = 0.1
+_C.MODEL.MVIT.USE_APE = False
+_C.MODEL.MVIT.USE_RPB = False
+_C.MODEL.MVIT.USE_SHARED_RPB = True
+_C.MODEL.MVIT.USE_MEAN_POOLING = False
+
 # -----------------------------------------------------------------------------
 # Training settings
 # -----------------------------------------------------------------------------

@@ -75,6 +75,9 @@ def build_finetune_optimizer(config, model, logger):
     elif config.MODEL.TYPE in ['vit', 'fracpatch_vit']:
         num_layers = config.MODEL.VIT.DEPTH
         get_layer_func = partial(get_vit_layer, num_layers=num_layers + 2)
+    elif config.MODEL.TYPE == 'mvit':
+        num_layers = config.MODEL.MVIT.DEPTH
+        get_layer_func = partial(get_vit_layer, num_layers=num_layers + 2)
     else:
         raise NotImplementedError
     
