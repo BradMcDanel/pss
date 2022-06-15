@@ -20,7 +20,7 @@ def build_loader_finetune(config, logger):
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config, logger=logger)
     config.freeze()
     dataset_val, _ = build_dataset(is_train=False, config=config, logger=logger)
-    logger.info(f"Build dataset: train images = {len(dataset_train)}, val images = {len(dataset_val)}")
+    # logger.info(f"Build dataset: train images = {len(dataset_train)}, val images = {len(dataset_val)}")
 
     num_tasks = dist.get_world_size()
     global_rank = dist.get_rank()
@@ -61,7 +61,7 @@ def build_loader_finetune(config, logger):
 
 def build_dataset(is_train, config, logger):
     transform = build_transform(is_train, config)
-    logger.info(f'Fine-tune data transform, is_train={is_train}:\n{transform}')
+    # logger.info(f'Fine-tune data transform, is_train={is_train}:\n{transform}')
     
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'

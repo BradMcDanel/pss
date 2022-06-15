@@ -6,6 +6,9 @@
 # Modified by Zhenda Xie
 # --------------------------------------------------------
 
+import warnings
+warnings.simplefilter("error")
+
 import os
 import time
 import argparse
@@ -74,10 +77,10 @@ def parse_option():
 def main(config):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config, logger, is_pretrain=False)
 
-    logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
+    # logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config, is_pretrain=False)
     model.cuda()
-    logger.info(str(model))
+    # logger.info(str(model))
 
     optimizer = build_optimizer(config, model, logger, is_pretrain=False)
     if config.AMP_OPT_LEVEL != "O0":
@@ -86,10 +89,10 @@ def main(config):
     model_without_ddp = model.module
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f"number of params: {n_parameters}")
+    # logger.info(f"number of params: {n_parameters}")
     if hasattr(model_without_ddp, 'flops'):
         flops = model_without_ddp.flops()
-        logger.info(f"number of GFLOPs: {flops / 1e9}")
+        # logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
 
@@ -128,7 +131,7 @@ def main(config):
         throughput(data_loader_val, model, logger)
         return
 
-    logger.info("Start training")
+    # logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
@@ -151,7 +154,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     model.train()
     optimizer.zero_grad()
     
-    logger.info(f'Current learning rate for different parameter groups: {[it["lr"] for it in optimizer.param_groups]}')
+    # logger.info(f'Current learning rate for different parameter groups: {[it["lr"] for it in optimizer.param_groups]}')
 
     num_steps = len(data_loader)
     batch_time = AverageMeter()
@@ -339,7 +342,7 @@ if __name__ == '__main__':
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ["RANK"])
         world_size = int(os.environ['WORLD_SIZE'])
-        print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
+        # print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     else:
         rank = -1
         world_size = -1
@@ -374,9 +377,9 @@ if __name__ == '__main__':
         path = os.path.join(config.OUTPUT, "config.json")
         with open(path, "w") as f:
             f.write(config.dump())
-        logger.info(f"Full config saved to {path}")
+        # logger.info(f"Full config saved to {path}")
 
     # print config
-    logger.info(config.dump())
+    # logger.info(config.dump())
 
     main(config)

@@ -19,15 +19,15 @@ def build_optimizer(config, model, logger, is_pretrain):
 
 
 def build_pretrain_optimizer(config, model, logger):
-    logger.info('>>>>>>>>>> Build Optimizer for Pre-training Stage')
+    # logger.info('>>>>>>>>>> Build Optimizer for Pre-training Stage')
     skip = {}
     skip_keywords = {}
     if hasattr(model, 'no_weight_decay'):
         skip = model.no_weight_decay()
-        logger.info(f'No weight decay: {skip}')
+        # logger.info(f'No weight decay: {skip}')
     if hasattr(model, 'no_weight_decay_keywords'):
         skip_keywords = model.no_weight_decay_keywords()
-        logger.info(f'No weight decay keywords: {skip_keywords}')
+        # logger.info(f'No weight decay keywords: {skip_keywords}')
 
     parameters = get_pretrain_param_groups(model, logger, skip, skip_keywords)
 
@@ -40,7 +40,7 @@ def build_pretrain_optimizer(config, model, logger):
         optimizer = optim.AdamW(parameters, eps=config.TRAIN.OPTIMIZER.EPS, betas=config.TRAIN.OPTIMIZER.BETAS,
                                 lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
 
-    logger.info(optimizer)
+    # logger.info(optimizer)
     return optimizer
     
 
@@ -60,19 +60,19 @@ def get_pretrain_param_groups(model, logger, skip_list=(), skip_keywords=()):
         else:
             has_decay.append(param)
             has_decay_name.append(name)
-    logger.info(f'No decay params: {no_decay_name}')
-    logger.info(f'Has decay params: {has_decay_name}')
+    # logger.info(f'No decay params: {no_decay_name}')
+    # logger.info(f'Has decay params: {has_decay_name}')
     return [{'params': has_decay},
             {'params': no_decay, 'weight_decay': 0.}]
 
 
 def build_finetune_optimizer(config, model, logger):
-    logger.info('>>>>>>>>>> Build Optimizer for Fine-tuning Stage')
+    # logger.info('>>>>>>>>>> Build Optimizer for Fine-tuning Stage')
     if config.MODEL.TYPE == 'swin':
         depths = config.MODEL.SWIN.DEPTHS
         num_layers = sum(depths)
         get_layer_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)
-    elif config.MODEL.TYPE == 'vit':
+    elif config.MODEL.TYPE in ['vit', 'fracpatch_vit']:
         num_layers = config.MODEL.VIT.DEPTH
         get_layer_func = partial(get_vit_layer, num_layers=num_layers + 2)
     else:
@@ -84,10 +84,10 @@ def build_finetune_optimizer(config, model, logger):
     skip_keywords = {}
     if hasattr(model, 'no_weight_decay'):
         skip = model.no_weight_decay()
-        logger.info(f'No weight decay: {skip}')
+        # logger.info(f'No weight decay: {skip}')
     if hasattr(model, 'no_weight_decay_keywords'):
         skip_keywords = model.no_weight_decay_keywords()
-        logger.info(f'No weight decay keywords: {skip_keywords}')
+        # logger.info(f'No weight decay keywords: {skip_keywords}')
 
     parameters = get_finetune_param_groups(
         model, logger, config.TRAIN.BASE_LR, config.TRAIN.WEIGHT_DECAY,
@@ -102,7 +102,7 @@ def build_finetune_optimizer(config, model, logger):
         optimizer = optim.AdamW(parameters, eps=config.TRAIN.OPTIMIZER.EPS, betas=config.TRAIN.OPTIMIZER.BETAS,
                                 lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY)
 
-    logger.info(optimizer)
+    # logger.info(optimizer)
     return optimizer
 
 
@@ -179,7 +179,7 @@ def get_finetune_param_groups(model, logger, lr, weight_decay, get_layer_func, s
 
         parameter_group_vars[group_name]["params"].append(param)
         parameter_group_names[group_name]["params"].append(name)
-    logger.info("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
+    # logger.info("Param groups = %s" % json.dumps(parameter_group_names, indent=2))
     return list(parameter_group_vars.values())
 
 
