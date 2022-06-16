@@ -9,29 +9,34 @@
 import math
 from functools import partial
 
+from requests import patch
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
-def drop_patches(x, drop_func, drop_ratio):
+def get_patch_idxs(x, drop_func, drop_ratio):
     if drop_func == "random":
-        return drop_random_patches(x, drop_ratio)
+        return get_random_patches(x, drop_ratio)
     else:
         raise NotImplementedError
 
-def drop_random_patches(x, drop_ratio):
+def get_random_patches(x, drop_ratio):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
-    keep_patches = torch.randint(1, N, (keep_point,), device=x.device)
+    # keep_patches = torch.randint(1, (B, N), (keep_point,), device=x.device)
+    keep_patches = torch.rand(B, N-1, device=x.device).argsort(dim=1)
+    keep_patches = keep_patches[:, :keep_point]
 
     # do not drop cls patch
-    cls_idx = torch.zeros((1,), device=keep_patches.device)
+    cls_idx = torch.zeros((B, 1), device=keep_patches.device, dtype=keep_patches.dtype)
 
-    keep_patches = torch.cat((cls_idx, keep_patches))
-    x = x[:, keep_patches]
+    batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
+    patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
 
-    return x
+    return (batch_idxs, patch_idxs), (B, keep_point + 1)
+
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -107,7 +112,7 @@ class Attention(nn.Module):
         self.proj = nn.Linear(all_head_dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
-    def forward(self, x, rel_pos_bias=None):
+    def forward(self, x, patch_info, rel_pos_bias=None):
         B, N, C = x.shape
         qkv_bias = None
         if self.q_bias is not None:
@@ -124,8 +129,18 @@ class Attention(nn.Module):
                 self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
                     self.window_size[0] * self.window_size[1] + 1,
                     self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
+            
             relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
-            attn = attn + relative_position_bias.unsqueeze(0)
+            relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+            B, nH, WH, _ = relative_position_bias.shape
+            patch_idxs, idx_shape = patch_info
+            nP = idx_shape[1]
+            relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
+            relative_position_bias = relative_position_bias.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
+            relative_position_bias = relative_position_bias[patch_idxs[0], :, :, patch_idxs[1]]
+            relative_position_bias = relative_position_bias.view(B, nP, nH, nP).permute(0, 2, 1, 3).contiguous()
+
+            attn = attn + relative_position_bias
 
         if rel_pos_bias is not None:
             attn = attn + rel_pos_bias
@@ -160,12 +175,12 @@ class Block(nn.Module):
         else:
             self.gamma_1, self.gamma_2 = None, None
 
-    def forward(self, x, rel_pos_bias=None):
+    def forward(self, x, patch_info, rel_pos_bias=None):
         if self.gamma_1 is None:
-            x = x + self.drop_path(self.attn(self.norm1(x), rel_pos_bias=rel_pos_bias))
+            x = x + self.drop_path(self.attn(self.norm1(x), patch_info, rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x), rel_pos_bias=rel_pos_bias))
+            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x), patch_info, rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
         return x
 
@@ -343,13 +358,13 @@ class FracPatchVisionTransformer(nn.Module):
         if rel_pos_bias is not None:
             print("Error: currently don't know how to handle this!")
             assert False
-
-        # x = drop_patches(x, self.patch_drop_func, self.patch_drop_ratio)
-        x = drop_patches(x, self.patch_drop_func, 0.5)
+        
+        patch_info = get_patch_idxs(x, self.patch_drop_func, 0.5)
+        patch_idxs, idx_shape = patch_info
+        x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
         for blk in self.blocks:
-            x = blk(x, rel_pos_bias=rel_pos_bias)
-        assert False
+            x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
 
         x = self.norm(x)
         if self.fc_norm is not None:
