@@ -302,6 +302,9 @@ class FracPatchVisionTransformer(nn.Module):
 
         self.patch_drop_ratio = 0.0
         self.patch_drop_func = 'random'
+    
+    def set_patch_drop_ratio(self, ratio):
+        self.patch_drop_ratio = ratio
 
     def _trunc_normal_(self, tensor, mean=0., std=1.):
         trunc_normal_(tensor, mean=mean, std=std)
@@ -359,7 +362,7 @@ class FracPatchVisionTransformer(nn.Module):
             print("Error: currently don't know how to handle this!")
             assert False
         
-        patch_info = get_patch_idxs(x, self.patch_drop_func, 0.5)
+        patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
         patch_idxs, idx_shape = patch_info
         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
