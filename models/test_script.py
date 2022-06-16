@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def plot_tensor(t):
     #FIXME: does not match number of dimensions for pyplot
     torch.Tensor.ndim = property(lambda self: len(self.shape))
@@ -22,8 +23,9 @@ def magnitude_mask(x, keep_ratio=1.0):
     return sums[:,:int(round(keep_ratio*h))]
 
 def center_pick(x, keep_ratio=1.0):
-    #FIXME: I do not know how to make a Gaussian map
-    return 0
+    b,h,w = x.shape
+    dist = torch.zeros(b,h).normal_().sort(dim=1)[1]
+    return dist[:,:int(round(keep_ratio*h))]
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -33,6 +35,7 @@ def print_hi(name):
     x = torch.zeros(1,196,168).normal_()
     print(x)
     print(magnitude_mask(x,0.37)) #returns the top values but in sorted order
+    print(center_pick(x,0.37))
 
 
 if __name__ == '__main__':
