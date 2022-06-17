@@ -30,6 +30,7 @@ from lr_scheduler import build_scheduler
 from optimizer import build_optimizer
 from logger import create_logger
 from utils import load_checkpoint, load_pretrained, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
+from patch_scheduler import build_patch_scheduler
 
 try:
     # noinspection PyUnresolvedReferences
@@ -95,6 +96,7 @@ def main(config):
         # logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    patch_scheduler = build_patch_scheduler(config)
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -131,13 +133,16 @@ def main(config):
         throughput(data_loader_val, model, logger)
         return
 
-    # logger.info("Start training")
+    logger.info(f'PATCH DROP FUNC: {config.TRAIN.PATCH_DROP_FUNC}')
+    model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
 
-        model.module.set_patch_drop_ratio(0.5)
-        model.module.set_patch_drop_func("magnitude")
+        logger.info(f'PATCH DROP RATIO: {patch_scheduler.get_patch_drop_ratio()}')
+        model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
+        patch_scheduler.step()
+
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)

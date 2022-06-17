@@ -10,8 +10,6 @@
 import math
 from functools import partial
 
-from requests import patch
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

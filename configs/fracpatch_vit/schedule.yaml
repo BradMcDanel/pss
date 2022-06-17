@@ -1,0 +1,31 @@
+MODEL:
+  TYPE: fracpatch_vit
+  NAME: fracpatch_finetune
+  DROP_PATH_RATE: 0.1
+  VIT:
+    EMBED_DIM: 768
+    DEPTH: 12
+    NUM_HEADS: 12
+    USE_APE: False
+    USE_RPB: True
+    USE_SHARED_RPB: False
+    USE_MEAN_POOLING: True
+DATA:
+  IMG_SIZE: 224
+TRAIN:
+  EPOCHS: 100
+  WARMUP_EPOCHS: 20
+  BASE_LR: 1.25e-3
+  # BASE_LR: 6.25e-4
+  WARMUP_LR: 2.5e-7
+  MIN_LR: 2.5e-7
+  WEIGHT_DECAY: 0.05
+  LAYER_DECAY: 0.65
+  PATCH_SCHEDULER:
+    NAME: 'linear'
+    START_PATCH_DROP_RATIO: 0.1
+    END_PATCH_DROP_RATIO: 1.0
+  PATCH_DROP_FUNC: 'random'
+PRINT_FREQ: 100
+SAVE_FREQ: 5
+TAG: fracpatch_finetune_baseline

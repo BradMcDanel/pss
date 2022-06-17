@@ -7,7 +7,7 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 ROOT = "../runs/"
-runs = ["pretrain_lr_1.25e-3", "fracpatch_50p"]
+runs = ["pretrain_lr_1.25e-3", "fracpatch_50p_rnd", "fracpatch_50p_mag"]
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
     train_data = load_jsonl(train_path)
