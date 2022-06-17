@@ -48,17 +48,8 @@ class CosinePatchScheduler:
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    patch_scheduler = LinearPatchScheduler(0.1, 1.0, 100,)
-    cosine_scheduler = CosinePatchScheduler(0.1, 1.0, 100,)
+    patch_scheduler = LinearPatchScheduler(0.9, 0.0, 100,)
 
-    y_axis = []
-    x_axis = []
     for i in range(100):
-        x = i
-        y = cosine_scheduler.get_patch_drop_ratio()
-        y_axis.append(y)
-        x_axis.append(x)
-        print(y)
-        cosine_scheduler.step()
-    #plt.plot(x_axis, y_axis)
-    #plt.show()
+        print(patch_scheduler.get_patch_drop_ratio())
+        patch_scheduler.step()
