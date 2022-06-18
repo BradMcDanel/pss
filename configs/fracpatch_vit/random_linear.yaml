@@ -16,7 +16,6 @@ TRAIN:
   EPOCHS: 100
   WARMUP_EPOCHS: 20
   BASE_LR: 1.25e-3
-  # BASE_LR: 6.25e-4
   WARMUP_LR: 2.5e-7
   MIN_LR: 2.5e-7
   WEIGHT_DECAY: 0.05
@@ -28,4 +27,4 @@ TRAIN:
   PATCH_DROP_FUNC: 'random'
 PRINT_FREQ: 100
 SAVE_FREQ: 5
-TAG: fracpatch_finetune_baseline
+TAG: random_linear

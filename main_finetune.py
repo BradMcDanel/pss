@@ -162,8 +162,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     model.train()
     optimizer.zero_grad()
     
-    # logger.info(f'Current learning rate for different parameter groups: {[it["lr"] for it in optimizer.param_groups]}')
-
     num_steps = len(data_loader)
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
