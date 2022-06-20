@@ -236,19 +236,19 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
                 f'mem {memory_used:.0f}MB')
             
-            if dist.get_rank() == 0:
-                train_info = {
-                    'epoch': epoch,
-                    'iteration': len(data_loader) * epoch + idx,
-                    'loss': loss_meter.avg,
-                    'lr': lr,
-                    'time': batch_time.avg,
-                    'memory': memory_used,
-                }
-    
-                train_log_file = os.path.join(config.OUTPUT, 'train_log.json')
-                with open(train_log_file, 'a') as f:
-                    f.write(json.dumps(train_info) + '\n')
+        if dist.get_rank() == 0:
+            train_info = {
+                'epoch': epoch,
+                'iteration': len(data_loader) * epoch + idx,
+                'loss': loss_meter.avg,
+                'lr': lr,
+                'time': batch_time.avg,
+                'memory': memory_used,
+            }
+
+            train_log_file = os.path.join(config.OUTPUT, 'train_log.json')
+            with open(train_log_file, 'a') as f:
+                f.write(json.dumps(train_info) + '\n')
 
 
     epoch_time = time.time() - start

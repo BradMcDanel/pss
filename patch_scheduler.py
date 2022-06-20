@@ -48,7 +48,7 @@ class CosinePatchScheduler:
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    patch_scheduler = LinearPatchScheduler(0.0, 0.0, 100)
+    patch_scheduler = LinearPatchScheduler(0.5, 0.5, 100)
 
     for i in range(100):
         print(patch_scheduler.get_patch_drop_ratio())

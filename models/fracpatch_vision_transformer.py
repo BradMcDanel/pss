@@ -26,7 +26,7 @@ def get_patch_idxs(x, drop_func, drop_ratio):
 def get_random_patches(x, drop_ratio):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
-    keep_patches = torch.rand(B, N-1, device=x.device).argsort(dim=1)
+    keep_patches = torch.rand(B, N-1, device=x.device).argsort(dim=1) + 1
     keep_patches = keep_patches[:, :keep_point]
 
     # do not drop cls patch
@@ -154,13 +154,14 @@ class Attention(nn.Module):
             
             relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
             relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+
             B, nH, WH, _ = relative_position_bias.shape
             patch_idxs, idx_shape = patch_info
             nP = idx_shape[1]
             relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
             relative_position_bias = relative_position_bias.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
             relative_position_bias = relative_position_bias[patch_idxs[0], :, :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nH, nP).permute(0, 2, 1, 3).contiguous()
+            relative_position_bias = relative_position_bias.view(B, nP, nH, nP).permute(0, 2, 3, 1).contiguous()
 
             attn = attn + relative_position_bias
 
@@ -380,7 +381,7 @@ class FracPatchVisionTransformer(nn.Module):
             x = x + self.pos_embed
 
         # TODO: see if dropout still makes sense in this context
-        # x = self.pos_drop(x)
+        x = self.pos_drop(x)
 
         # TODO: look into what rel_pos_bias is doing and if it is ever used..!
         rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
@@ -390,6 +391,7 @@ class FracPatchVisionTransformer(nn.Module):
         
         patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
         patch_idxs, idx_shape = patch_info
+
         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
         for blk in self.blocks:

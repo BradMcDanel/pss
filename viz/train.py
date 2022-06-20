@@ -7,11 +7,11 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 ROOT = "../runs/"
-runs = ["pretrain_lr_1.25e-3", "fracpatch_50p_rnd", "fracpatch_50p_mag", "fracpatch_random_linear"]
+runs = ["pretrain_lr_1.25e-3", "fracpatch_50p_rnd", "fracpatch_50p_mag", "fracpatch_random_linear", "baseline", "baseline-dense"]
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
     train_data = load_jsonl(train_path)
-    plt.plot(ema(train_data['loss']), '-', linewidth=2, label=run)
+    plt.plot(ema(train_data['loss'], 0.3), '-', linewidth=2, label=run)
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Iteration')
@@ -39,7 +39,7 @@ for run in runs:
     num_iters = float(train_data["iteration"][-1])
     med_time = np.median(train_data["time"])
     timed_iters = [(i * med_time) / SECS_TO_HOUR for i in train_data["iteration"]]
-    plt.plot(ema(timed_iters), ema(train_data["loss"]), "-", linewidth=2, label=run)
+    plt.plot(ema(timed_iters, 0.3), ema(train_data["loss"], 0.3), "-", linewidth=2, label=run)
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Time (Hours)')
