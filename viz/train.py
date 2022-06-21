@@ -6,12 +6,12 @@ plt = init_mpl()
 
 SECS_TO_HOUR = 3600
 
-ROOT = "../runs/"
-runs = ["pretrain_lr_1.25e-3", "fracpatch_50p_rnd", "fracpatch_50p_mag", "fracpatch_random_linear", "baseline", "baseline-dense"]
+ROOT = "/data/runs/simmim/fracpatch_finetune/"
+runs = ["baseline", "random_fixed_50", "random_linear_80_0"]
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
     train_data = load_jsonl(train_path)
-    plt.plot(ema(train_data['loss'], 0.3), '-', linewidth=2, label=run)
+    plt.plot(ema(train_data['loss'], 0.9999), '-', linewidth=2, label=run)
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Iteration')
@@ -37,9 +37,9 @@ for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
     train_data = load_jsonl(train_path)
     num_iters = float(train_data["iteration"][-1])
-    med_time = np.median(train_data["time"])
+    med_time = np.mean(train_data["time"])
     timed_iters = [(i * med_time) / SECS_TO_HOUR for i in train_data["iteration"]]
-    plt.plot(ema(timed_iters, 0.3), ema(train_data["loss"], 0.3), "-", linewidth=2, label=run)
+    plt.plot(ema(timed_iters, 0.9999), ema(train_data["loss"], 0.9999), "-", linewidth=2, label=run)
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Time (Hours)')
@@ -54,7 +54,7 @@ for run in runs:
     val_path = os.path.join(ROOT, run, "val_log.json")
     val_data = load_jsonl(val_path)
     num_iters = float(train_data["iteration"][-1])
-    med_time = np.median(train_data["time"])
+    med_time = np.mean(train_data["time"])
     timed_iters = [(i * med_time) / SECS_TO_HOUR for i in train_data["iteration"]]
     idxs = np.rint(np.linspace(0, len(timed_iters)-1, len(val_data["acc1"]))).astype('int')
     epoch_times = [timed_iters[i] for i in idxs]
@@ -68,3 +68,8 @@ plt.legend(loc=0)
 plt.savefig('../figures/validation-accuracy-time.pdf', dpi=300, bbox_inches='tight')
 plt.clf()
 
+
+for run in runs:
+    val_path = os.path.join(ROOT, run, "val_log.json")
+    val_data = load_jsonl(val_path)
+    print(f'Max val accuray for {run}: {max(val_data["acc1"])}')

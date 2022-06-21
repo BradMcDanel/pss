@@ -8,6 +8,14 @@ def build_patch_scheduler(config):
             config.TRAIN.PATCH_SCHEDULER.END_PATCH_DROP_RATIO,
             config.TRAIN.EPOCHS,
         )
+    elif config.TRAIN.PATCH_SCHEDULER.NAME == "cosine":
+        return CosinePatchScheduler(
+            config.TRAIN.PATCH_SCHEDULER.START_PATCH_DROP_RATIO,
+            config.TRAIN.PATCH_SCHEDULER.END_PATCH_DROP_RATIO,
+            config.TRAIN.EPOCHS,
+        )
+    else:
+        raise ValueError("Unknown patch scheduler: {}".format(config.TRAIN.PATCH_SCHEDULER.NAME))
 
 
 class LinearPatchScheduler:
@@ -47,8 +55,7 @@ class CosinePatchScheduler:
                     (1+math.cos((self.curr_epoch)*math.pi / self.total_epochs)) / 2)
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    patch_scheduler = LinearPatchScheduler(0.5, 0.5, 100)
+    patch_scheduler = CosinePatchScheduler(0.8, 0.0, 100)
 
     for i in range(100):
         print(patch_scheduler.get_patch_drop_ratio())
