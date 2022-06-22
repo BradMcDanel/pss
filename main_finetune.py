@@ -163,19 +163,26 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     optimizer.zero_grad()
     
     num_steps = len(data_loader)
-    batch_time = AverageMeter()
+    batch_time_meter = AverageMeter()
+    cpu_time_meter = AverageMeter()
+    gpu_time_meter = AverageMeter()
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
     start = time.time()
     end = time.time()
+    cpu_time_start = time.time()
     for idx, (samples, targets) in enumerate(data_loader):
         samples = samples.cuda(non_blocking=True)
         targets = targets.cuda(non_blocking=True)
 
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
+        
+        cpu_time_end = time.time()
+        cpu_time = cpu_time_end - cpu_time_start
 
+        gpu_time_start = time.time()
         outputs = model(samples)
 
         if config.TRAIN.ACCUMULATION_STEPS > 1:
@@ -219,21 +226,30 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         torch.cuda.synchronize()
 
+        gpu_time_end = time.time()
+        gpu_time = gpu_time_end - gpu_time_start
+
         loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
-        batch_time.update(time.time() - end)
+        batch_time_meter.update(time.time() - end)
+        cpu_time_meter.update(cpu_time)
+        gpu_time_meter.update(gpu_time)
+
         end = time.time()
+        cpu_time_start = time.time()
 
         if idx % config.PRINT_FREQ == 0:
             lr = optimizer.param_groups[-1]['lr']
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (num_steps - idx)
+            etas = batch_time_meter.avg * (num_steps - idx)
             logger.info(
-                f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
-                f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
+                f'[{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}], '
+                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}, '
+                f'batch time {batch_time_meter.avg:.4f}, '
+                f'cpu time {cpu_time_meter.avg:.4f}, '
+                f'gpu time {gpu_time_meter.avg:.4f}, '
+                f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}), '
+                f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f}), '
                 f'mem {memory_used:.0f}MB')
             
         if dist.get_rank() == 0:
@@ -242,7 +258,9 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 'iteration': len(data_loader) * epoch + idx,
                 'loss': loss_meter.avg,
                 'lr': lr,
-                'time': batch_time.avg,
+                'time': batch_time_meter.avg,
+                'cpu_time': cpu_time,
+                'gpu_time': gpu_time,
                 'memory': memory_used,
             }
 
