@@ -6,9 +6,6 @@
 # Modified by Zhenda Xie
 # --------------------------------------------------------
 
-import warnings
-warnings.simplefilter("error")
-
 import os
 import time
 import argparse
