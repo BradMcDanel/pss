@@ -54,6 +54,42 @@ class CosinePatchScheduler:
             return (self.end_patch_drop_ratio + (self.start_patch_drop_ratio-self.end_patch_drop_ratio) *
                     (1+math.cos((self.curr_epoch)*math.pi / self.total_epochs)) / 2)
 
+class CyclicScheduler:
+    #total number of iterations per epoch = 1200
+    #total number of iterations = 120000
+    def __init__(self,start_patch_drop_ratio, end_patch_drop_ratio, total_epochs,
+                    iterations_per_epoch=1200,curr_epoch=0, curr_iterations = 0):
+        self.start_patch_drop_ratio = start_patch_drop_ratio
+        self.end_patch_drop_ratio = end_patch_drop_ratio
+        self.total_epochs = total_epochs
+        self.curr_epoch = curr_epoch
+        self.iterations_per_epoch = iterations_per_epoch
+        self.curr_iterations = curr_iterations
+    #epoch step never actually called
+    def epoch_step(self):
+        self.curr_epoch += 1
+
+    def iterations_step(self):
+        if (self.curr_iterations < 1200):
+            self.curr_iterations += 1
+        elif (self.curr_iterations == 1200):
+            self.curr_iterations = 0
+            self.curr_epoch += 1
+
+    def get_patch_drop_ratio(self):
+        iterations_pct = self.curr_iterations / (self.iterations_per_epoch-1)
+        print("iteration pct: ", iterations_pct)
+        if (iterations_pct == 0.5):
+            return 1.0
+        elif (iterations_pct < 0.5):
+            curr_patch_ratio = (1 - iterations_pct) * self.start_patch_drop_ratio + \
+                           iterations_pct * self.end_patch_drop_ratio
+            return curr_patch_ratio
+        elif (iterations_pct > 0.5):
+            curr_patch_ratio = (1 - iterations_pct) * self.end_patch_drop_ratio + \
+                           iterations_pct * self.start_patch_drop_ratio
+            return curr_patch_ratio
+
 if __name__ == '__main__':
     patch_scheduler = CosinePatchScheduler(0.8, 0.0, 100)
 
