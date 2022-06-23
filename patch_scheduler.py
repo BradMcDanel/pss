@@ -70,9 +70,9 @@ class CyclicScheduler:
         self.curr_epoch += 1
 
     def iterations_step(self):
-        if (self.curr_iterations < 1200):
+        if (self.curr_iterations < self.iterations_per_epoch):
             self.curr_iterations += 1
-        elif (self.curr_iterations == 1200):
+        elif (self.curr_iterations == self.iterations_per_epoch):
             self.curr_iterations = 0
             self.curr_epoch += 1
 
