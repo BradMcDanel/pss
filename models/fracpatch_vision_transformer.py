@@ -393,7 +393,7 @@ class FracPatchVisionTransformer(nn.Module):
         patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
         patch_idxs, idx_shape = patch_info
 
-        viz_patches(img, x, patch_info)
+        # viz_patches(img, x, patch_info)
 
         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
