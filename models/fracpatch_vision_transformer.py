@@ -372,6 +372,7 @@ class FracPatchVisionTransformer(nn.Module):
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x):
+        img = x.detach()
         x = self.patch_embed(x)
         batch_size, seq_len, _ = x.size()
 
@@ -392,6 +393,8 @@ class FracPatchVisionTransformer(nn.Module):
         patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
         patch_idxs, idx_shape = patch_info
 
+        viz_patches(img, x, patch_info)
+
         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
         for blk in self.blocks:
@@ -408,6 +411,23 @@ class FracPatchVisionTransformer(nn.Module):
         x = self.forward_features(x)
         x = self.head(x)
         return x
+
+def viz_patches(img, x, patch_info):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    patch_idxs, idx_shape = patch_info
+    print(img.shape, x.shape)
+
+    patches = x.shape[1] - 1
+    patch_order = patch_idxs[1][1:patches]
+    ex = img[7].detach().cpu()
+    ex = ex.abs().sum(0).numpy()
+    plt.imshow(ex)
+    plt.savefig('scratch/test.png', dpi=300)
+    plt.clf()
+    assert False
 
 
 def build_fracpatch_vit(config):
