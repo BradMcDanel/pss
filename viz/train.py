@@ -6,8 +6,8 @@ plt = init_mpl()
 
 SECS_TO_HOUR = 3600
 
-ROOT = "/data/runs/simmim/fracpatch_finetune/"
-runs = ["baseline", "random_fixed_50", "random_linear_80_0", "random_cosine_80_0"]
+ROOT = "/data/runs/fracpatch"
+runs = ["baseline", "random_fixed_50", "random_linear_80_0", "random_cosine_80_0", "random_cyclic_80_0", "magnitude_cyclic_80_0"]
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
     train_data = load_jsonl(train_path)

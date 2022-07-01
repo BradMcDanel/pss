@@ -41,15 +41,11 @@ def get_magnitude_patches(x, drop_ratio):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
 
-    # sample patches using their magnitude + noise
-    sample_mat = x.abs().sum(dim=2)
+    # sample patches using their magnitude
+    sample_mat = x[:, 1:].abs().sum(dim=2)
     sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
-    noise_std = sample_mat.std()
-    noise = torch.zeros(B, N, device=x.device)
-    noise = trunc_normal_(noise, std=noise_std)
-    sample_mat = sample_mat + noise
 
-    keep_patches = sample_mat.argsort(dim=1, descending=True)
+    keep_patches = sample_mat.argsort(dim=1, descending=True) + 1
     keep_patches = keep_patches[:, :keep_point]
 
     # do not drop cls patch
@@ -58,7 +54,9 @@ def get_magnitude_patches(x, drop_ratio):
     batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
     patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
 
+
     return (batch_idxs, patch_idxs), (B, keep_point + 1)
+
 
 class Mlp(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
@@ -407,26 +405,54 @@ class FracPatchVisionTransformer(nn.Module):
         else:
             return x[:, 0]
 
+
     def forward(self, x):
         x = self.forward_features(x)
         x = self.head(x)
         return x
 
+
 def viz_patches(img, x, patch_info):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    import math
 
     patch_idxs, idx_shape = patch_info
+    B, N, C = x.shape
     print(img.shape, x.shape)
 
-    patches = x.shape[1] - 1
-    patch_order = patch_idxs[1][1:patches]
-    ex = img[7].detach().cpu()
-    ex = ex.abs().sum(0).numpy()
-    plt.imshow(ex)
-    plt.savefig('scratch/test.png', dpi=300)
-    plt.clf()
+    sample_mat = x.abs().sum(dim=2)
+    sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
+    noise_std = sample_mat.std()
+    noise = torch.zeros(B, N, device=x.device)
+    noise = trunc_normal_(noise, std=noise_std)
+    sample_mat = sample_mat + noise
+
+    num_patch_row = int(math.sqrt(x.shape[1]))
+    patch_size = int(img.shape[2] / num_patch_row)
+    #repeat to match img shape
+    sample_mat = sample_mat[:, 1:].view(-1, num_patch_row, num_patch_row)
+    print(sample_mat.shape)
+    sample_mat = sample_mat.repeat_interleave(patch_size, dim=1).repeat_interleave(patch_size, dim=2)
+    print(patch_size)
+    print(sample_mat.shape)
+
+    for i in range(25):
+        # patches = x.shape[1] - 1
+        # patch_order = patch_idxs[1][1:patches]
+        ex = img[i].detach().cpu().permute(1, 2, 0).numpy()
+        # change colors to rgb
+        ex = ex[:, :, ::-1]
+        # plot the image
+        plt.imshow(ex)
+
+        # overlay transparent sample_mat
+        sample_ex = sample_mat[i].detach().cpu()
+        plt.imshow(sample_ex, alpha=0.75)
+        plt.colorbar()
+        plt.savefig(f'scratch/{i}-noise.png', dpi=300)
+        plt.clf()
     assert False
 
 
