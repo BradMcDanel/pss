@@ -204,13 +204,13 @@ def remap_pretrained_keys_swin(model, checkpoint_model, logger):
 def remap_pretrained_keys_vit(model, checkpoint_model, logger):
     # Duplicate shared rel_pos_bias to each layer
     if getattr(model, 'use_rel_pos_bias', False) and "rel_pos_bias.relative_position_bias_table" in checkpoint_model:
-        pass
         # logger.info("Expand the shared relative position embedding to each transformer block.")
-    num_layers = model.get_num_layers()
-    rel_pos_bias = checkpoint_model["rel_pos_bias.relative_position_bias_table"]
-    for i in range(num_layers):
-        checkpoint_model["blocks.%d.attn.relative_position_bias_table" % i] = rel_pos_bias.clone()
-    checkpoint_model.pop("rel_pos_bias.relative_position_bias_table")
+        num_layers = model.get_num_layers()
+        print(checkpoint_model["rel_pos_bias.relative_position_bias_table"])
+        rel_pos_bias = checkpoint_model["rel_pos_bias.relative_position_bias_table"]
+        for i in range(num_layers):
+            checkpoint_model["blocks.%d.attn.relative_position_bias_table" % i] = rel_pos_bias.clone()
+        checkpoint_model.pop("rel_pos_bias.relative_position_bias_table")
     
     # Geometric interpolation when pre-trained patch size mismatch with fine-tuned patch size
     all_keys = list(checkpoint_model.keys())
