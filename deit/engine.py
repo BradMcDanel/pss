@@ -23,7 +23,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
-                    set_training_mode=True, args = None):
+                    set_training_mode=True, args = None, patch_schedule = None):
     model.train(set_training_mode)
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -37,6 +37,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         targets = targets.to(device, non_blocking=True)
 
         lr = optimizer.param_groups[0]['lr']
+
+        if patch_schedule is not None:
+            model.module.set_patch_drop_ratio(patch_schedule.get_patch_drop_ratio())
 
         cpu_time_end = time.time()
         cpu_time = cpu_time_end - cpu_time_start
@@ -69,6 +72,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         if model_ema is not None:
             model_ema.update(model)
 
+        if patch_schedule is not None:
+            patch_schedule.step()
+
+
         gpu_time_end = time.time()
         gpu_time = gpu_time_end - gpu_time_start
         total_time = gpu_time + cpu_time
@@ -85,6 +92,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
                 'cpu_time': cpu_time,
                 'gpu_time': gpu_time,
             }
+
+            if patch_schedule is not None:
+                train_info['patch_drop_ratio'] = patch_schedule.get_patch_drop_ratio()
 
             with open(train_log_file, 'a') as f:
                 f.write(json.dumps(train_info) + '\n')

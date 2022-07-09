@@ -17,7 +17,7 @@ __all__ = [
     'deit_base_distilled_patch16_384',
 ]
 
-class PatchSampleVisionTransformer(VisionTransformer):
+class PatchDropVisionTransformer(VisionTransformer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         num_patches = self.patch_embed.num_patches
@@ -133,8 +133,8 @@ def deit_small_patch16_224(pretrained=False, **kwargs):
     return model
 
 @register_model
-def sample_deit_small_patch16_224(pretrained=False, **kwargs):
-    model = PatchSampleVisionTransformer(
+def patchdrop_deit_small_patch16_224(pretrained=False, **kwargs):
+    model = PatchDropVisionTransformer(
         patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     model.default_cfg = _cfg()

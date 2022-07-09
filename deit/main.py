@@ -27,6 +27,7 @@ import models
 import models_v2
 
 import utils
+import patch_scheduler
 
 
 def get_args_parser():
@@ -176,6 +177,18 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+
+
+    # patch sampling parameters
+    parser.add_argument('--patch-scheduler-name', default='linear',
+                        choices=['linear', 'cosine', 'cyclic'], help='patch scheduler name')
+    parser.add_argument('--patch-scheduler-start-drop-ratio', default=0.0, type=float, 
+                        help='start drop ratio')
+    parser.add_argument('--patch-scheduler-end-drop-ratio', default=0.0, type=float,
+                        help='end drop ratio')
+    parser.add_argument('--patch-drop-func', default='random', choices=['random', 'magnitude'],
+                        help='patch drop function')
+
     return parser
 
 
@@ -249,6 +262,8 @@ def main(args):
             mixup_alpha=args.mixup, cutmix_alpha=args.cutmix, cutmix_minmax=args.cutmix_minmax,
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
+    
+    iterations_per_epoch = len(data_loader_train)
 
     print(f"Creating model: {args.model}")
     model = create_model(
@@ -405,7 +420,19 @@ def main(args):
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         return
 
+
+    # Patch Drop settings
+    model.module.set_patch_drop_func(args.patch_drop_func)
+    if type(model.module) == models.PatchDropVisionTransformer:
+        patch_schedule = patch_scheduler.build_patch_scheduler(args, iterations_per_epoch)
+    else:
+        patch_schedule = None
+
+
     print(f"Start training for {args.epochs} epochs")
+    print(f"Patch drop function: {args.patch_drop_func}")
+    print(f"Patch drop schedule: {patch_schedule}")
+
     start_time = time.time()
     max_accuracy = 0.0
     for epoch in range(args.start_epoch, args.epochs):
@@ -421,7 +448,8 @@ def main(args):
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
             set_training_mode=args.finetune == '',  # keep in eval mode during finetuning
-            args = args,
+            args=args,
+            patch_schedule=patch_schedule
         )
 
         lr_scheduler.step(epoch)
@@ -438,6 +466,10 @@ def main(args):
                     'args': args,
                 }, checkpoint_path)
              
+
+        # Set drop rate to 0.0 for evaluation
+        if patch_schedule is not None:
+            model.module.set_patch_drop_ratio(0.0)
 
         test_stats = evaluate(data_loader_val, model, device, epoch, args)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
