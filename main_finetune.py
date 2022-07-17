@@ -87,10 +87,10 @@ def main(config):
     model_without_ddp = model.module
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # logger.info(f"number of params: {n_parameters}")
+    logger.info(f"number of params: {n_parameters}")
     if hasattr(model_without_ddp, 'flops'):
         flops = model_without_ddp.flops()
-        # logger.info(f"number of GFLOPs: {flops / 1e9}")
+        logger.info(f"number of GFLOPs: {flops / 1e9}")
 
     lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
     patch_scheduler = build_patch_scheduler(config, len(data_loader_train))
@@ -262,7 +262,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 'iteration': len(data_loader) * epoch + idx,
                 'loss': loss_meter.avg,
                 'lr': lr,
-                'time': batch_time_meter.avg,
+                'time': cpu_time + gpu_time,
                 'cpu_time': cpu_time,
                 'gpu_time': gpu_time,
                 'memory': memory_used,

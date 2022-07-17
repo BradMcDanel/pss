@@ -41,10 +41,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         if patch_schedule is not None:
             model.module.set_patch_drop_ratio(patch_schedule.get_patch_drop_ratio())
 
-        cpu_time_end = time.time()
-        cpu_time = cpu_time_end - cpu_time_start
-        gpu_time_start = time.time()
-
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
             
@@ -52,8 +48,12 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             targets = targets.gt(0.0).type(targets.dtype)
                     
         with torch.cuda.amp.autocast():
+            cpu_time_end = time.time()
+            cpu_time = cpu_time_end - cpu_time_start
+            gpu_time_start = time.time()
             outputs = model(samples)
-            loss = criterion(samples, outputs, targets)
+            # loss = criterion(samples, outputs, targets)
+            loss = criterion(outputs, targets)
 
         loss_value = loss.item()
 
@@ -68,6 +68,12 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         loss_scaler(loss, optimizer, clip_grad=max_norm,
                     parameters=model.parameters(), create_graph=is_second_order)
 
+
+
+        gpu_time_end = time.time()
+        gpu_time = gpu_time_end - gpu_time_start
+        total_time = gpu_time + cpu_time
+
         torch.cuda.synchronize()
         if model_ema is not None:
             model_ema.update(model)
@@ -75,10 +81,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         if patch_schedule is not None:
             patch_schedule.step()
 
-
-        gpu_time_end = time.time()
-        gpu_time = gpu_time_end - gpu_time_start
-        total_time = gpu_time + cpu_time
 
         # if rank is 0, then print out the training loss
         if utils.get_rank() == 0:

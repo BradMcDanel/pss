@@ -8,6 +8,7 @@ from timm.models.vision_transformer import VisionTransformer, _cfg
 from timm.models.registry import register_model
 from timm.models.layers import trunc_normal_
 
+from patch_drop import PatchDropVisionTransformer
 import patch_sampler
 
 __all__ = [
@@ -17,48 +18,48 @@ __all__ = [
     'deit_base_distilled_patch16_384',
 ]
 
-class PatchDropVisionTransformer(VisionTransformer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        num_patches = self.patch_embed.num_patches
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, self.embed_dim))
+# class PatchDropVisionTransformer(VisionTransformer):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         num_patches = self.patch_embed.num_patches
+#         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, self.embed_dim))
 
-        trunc_normal_(self.pos_embed, std=.02)
+#         trunc_normal_(self.pos_embed, std=.02)
 
-        self.patch_drop_ratio = 0.0
-        self.patch_drop_func = 'random'
+#         self.patch_drop_ratio = 0.0
+#         self.patch_drop_func = 'random'
     
 
-    def set_patch_drop_ratio(self, ratio):
-        self.patch_drop_ratio = ratio
+#     def set_patch_drop_ratio(self, ratio):
+#         self.patch_drop_ratio = ratio
 
 
-    def set_patch_drop_func(self, func):
-        self.patch_drop_func = func
+#     def set_patch_drop_func(self, func):
+#         self.patch_drop_func = func
 
 
-    def forward_features(self, x):
-        B = x.shape[0]
-        x = self.patch_embed(x)
-        cls_tokens = self.cls_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, x), dim=1)
+#     def forward_features(self, x):
+#         B = x.shape[0]
+#         x = self.patch_embed(x)
+#         cls_tokens = self.cls_token.expand(B, -1, -1)
+#         x = torch.cat((cls_tokens, x), dim=1)
 
-        x = x + self.pos_embed
-        x = self.pos_drop(x)
+#         x = x + self.pos_embed
+#         x = self.pos_drop(x)
 
-        # sample patches
-        patch_info = patch_sampler.get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-        patch_idxs, idx_shape = patch_info
+#         # sample patches
+#         patch_info = patch_sampler.get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
+#         patch_idxs, idx_shape = patch_info
 
 
-        x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+#         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
-        for blk in self.blocks:
-            x = blk(x)
+#         for blk in self.blocks:
+#             x = blk(x)
 
-        x = self.norm(x)
+#         x = self.norm(x)
 
-        return x[:, 0]
+#         return x[:, 0]
 
 
 class DistilledVisionTransformer(VisionTransformer):
@@ -132,13 +133,29 @@ def deit_small_patch16_224(pretrained=False, **kwargs):
         model.load_state_dict(checkpoint["model"])
     return model
 
+# @register_model
+# def patchdrop_deit_small_patch16_224(pretrained=False, **kwargs):
+#     model = PatchDropVisionTransformer(
+#         patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
+#         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+#     model.default_cfg = _cfg()
+#     if pretrained:
+#         checkpoint = torch.hub.load_state_dict_from_url(
+#             url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
+#             map_location="cpu", check_hash=True
+#         )
+#         model.load_state_dict(checkpoint["model"])
+#     return model
+
+
 @register_model
 def patchdrop_deit_small_patch16_224(pretrained=False, **kwargs):
     model = PatchDropVisionTransformer(
         patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
     model.default_cfg = _cfg()
     if pretrained:
+        assert False
         checkpoint = torch.hub.load_state_dict_from_url(
             url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
             map_location="cpu", check_hash=True
@@ -147,7 +164,25 @@ def patchdrop_deit_small_patch16_224(pretrained=False, **kwargs):
     return model
 
 
-
+@register_model
+def patchdrop_multilayer_deit_small_patch16_224(pretrained=False, **kwargs):
+    # linear interp between 0 and 0.9 of depth 12
+    # drop_scales = torch.linspace(0, 0.9, 12).tolist()
+    drop_scales = [0.12 for _ in range(12)]
+    drop_scales = [0.0, 0.4, 0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 0.4, 0.0, 0.0, 0.0]
+    model = PatchDropVisionTransformer(
+        patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True,
+        drop_scales=drop_scales, **kwargs)
+    model.default_cfg = _cfg()
+    if pretrained:
+        assert False
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
+            map_location="cpu", check_hash=True
+        )
+        model.load_state_dict(checkpoint["model"])
+    return model
 
 @register_model
 def deit_base_patch16_224(pretrained=False, **kwargs):
