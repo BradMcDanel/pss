@@ -24,7 +24,8 @@ TRAIN:
     NAME: 'linear'
     START_PATCH_DROP_RATIO: 0.8
     END_PATCH_DROP_RATIO: 0.0
+    COOLDOWN_EPOCHS: 10
   PATCH_DROP_FUNC: 'random'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: random_linear_80_0
+TAG: finetune/vit-b/random_linear_80_0

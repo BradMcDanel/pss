@@ -22,9 +22,10 @@ TRAIN:
   LAYER_DECAY: 0.65
   PATCH_SCHEDULER:
     NAME: 'linear'
-    START_PATCH_DROP_RATIO: 0.50
-    END_PATCH_DROP_RATIO: 0.50
-  PATCH_DROP_FUNC: 'random'
+    START_PATCH_DROP_RATIO: 0.8
+    END_PATCH_DROP_RATIO: 0.0
+    COOLDOWN_EPOCHS: 10
+  PATCH_DROP_FUNC: 'magnitude'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: random_fixed_50
+TAG: finetune/vit-b/magnitude_linear_80_0

@@ -21,11 +21,11 @@ TRAIN:
   WEIGHT_DECAY: 0.05
   LAYER_DECAY: 0.65
   PATCH_SCHEDULER:
-    NAME: 'cyclic'
+    NAME: 'cosine'
     START_PATCH_DROP_RATIO: 0.8
     END_PATCH_DROP_RATIO: 0.0
     COOLDOWN_EPOCHS: 10
   PATCH_DROP_FUNC: 'magnitude'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: finetune/vit-b/magnitude_cyclic_80_0
+TAG: finetune/vit-b/magnitude_cosine_80_0
