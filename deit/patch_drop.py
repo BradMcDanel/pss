@@ -170,8 +170,6 @@ class Attention(nn.Module):
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
 
-        print(attn.abs().sum((2, 3)).shape)
-
         x = (attn @ v).transpose(1, 2).reshape(B, N, -1)
         x = self.proj(x)
         x = self.proj_drop(x)
@@ -396,20 +394,23 @@ class PatchDropVisionTransformer(nn.Module):
             print("Error: currently don't know how to handle this!")
             assert False
         
-        # patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-        # patch_idxs, idx_shape = patch_info
+        patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
+        patch_idxs, idx_shape = patch_info
 
-        # x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+        x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
 
-        for i, blk in enumerate(self.blocks):
-            blk_drop_ratio = self.patch_drop_ratio * self.drop_scales[i]
-            if blk_drop_ratio > 0 or i == 0:
-                patch_info = get_patch_idxs(x, self.patch_drop_func, blk_drop_ratio)
-
-                patch_idxs, idx_shape = patch_info
-                x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
-
+        for blk in self.blocks:
             x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
+
+        # for i, blk in enumerate(self.blocks):
+        #     blk_drop_ratio = self.patch_drop_ratio * self.drop_scales[i]
+        #     if blk_drop_ratio > 0 or i == 0:
+        #         patch_info = get_patch_idxs(x, self.patch_drop_func, blk_drop_ratio)
+
+        #         patch_idxs, idx_shape = patch_info
+        #         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+
+        #     x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
 
         x = self.norm(x)
         if self.fc_norm is not None:

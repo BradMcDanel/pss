@@ -11,7 +11,7 @@ SECS_TO_HOUR = 3600
 # ROOT = "/data/runs/fracpatch"
 # runs = ["magnitude_cyclic_80_0"]
 ROOT = "/data/runs/deit"
-runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-v3", "small-multilayer-cyclic"]
+runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-ft-v2"]
 train_datas, val_datas = {}, {}
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
@@ -65,6 +65,20 @@ plt.ylabel('Validation Accuracy')
 plt.legend(loc=0)
 plt.savefig('../figures/validation-accuracy-time.pdf', dpi=300, bbox_inches='tight')
 plt.clf()
+
+
+for run in runs:
+    plt.plot(train_datas[run]["lr"], "-", linewidth=2, label=run)
+
+plt.title("ImageNet (VIT)")
+plt.xlabel('Iteration')
+# plt.ylim((65, 84))
+plt.ylabel('Learning Rate')
+plt.legend(loc=0)
+plt.savefig('../figures/learning-rates.pdf', dpi=300, bbox_inches='tight')
+plt.clf()
+
+
 
 
 for run in runs:
