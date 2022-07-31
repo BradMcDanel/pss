@@ -114,6 +114,7 @@ def main(config):
             config.MODEL.RESUME = resume_file
             config.freeze()
             logger.info(f'auto resuming from {resume_file}')
+        # patch_scheduler
         else:
             logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
 
@@ -130,24 +131,30 @@ def main(config):
         throughput(data_loader_val, model, logger)
         return
 
-    logger.info(f'PATCH DROP FUNC: {config.TRAIN.PATCH_DROP_FUNC}')
-    logger.info(f'PATCH DROP SCHEDULE: {config.TRAIN.PATCH_SCHEDULER.NAME}')
-    model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
+
+    if config.MODEL.TYPE == 'fracpatch_vit':
+        logger.info(f'PATCH DROP FUNC: {config.TRAIN.PATCH_DROP_FUNC}')
+        logger.info(f'PATCH DROP SCHEDULE: {config.TRAIN.PATCH_SCHEDULER.NAME}')
+        model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
+        patch_scheduler.set_epoch(config.TRAIN.START_EPOCH)
+
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         data_loader_train.sampler.set_epoch(epoch)
-
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler, patch_scheduler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
-        # Set drop ratio to 0 for validation
-        model.module.set_patch_drop_ratio(0.0)
+
+        if config.MODEL.TYPE == 'fracpatch_vit':
+            # Set drop ratio to 0 for validation
+            model.module.set_patch_drop_ratio(0.0)
 
         acc1, acc5, loss = validate(config, data_loader_val, model, epoch)
 
-        # Set back drop ratio to prior value
-        model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
+        if config.MODEL.TYPE == 'fracpatch_vit':
+            # Set back drop ratio to prior value
+            model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
 
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
@@ -226,9 +233,11 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         torch.cuda.synchronize()
 
-        # set patch drop ratio
-        model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
-        patch_scheduler.step()
+
+        if config.MODEL.TYPE == 'fracpatch_vit':
+            # set patch drop ratio
+            model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
+            patch_scheduler.step()
 
         gpu_time_end = time.time()
         gpu_time = gpu_time_end - gpu_time_start
@@ -266,8 +275,12 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 'cpu_time': cpu_time,
                 'gpu_time': gpu_time,
                 'memory': memory_used,
-                'patch_drop_ratio': patch_scheduler.get_patch_drop_ratio(),
             }
+
+            if config.MODEL.TYPE == 'fracpatch_vit':
+                train_info['patch_drop_ratio'] =  patch_scheduler.get_patch_drop_ratio()
+            else:
+                train_info['patch_drop_ratio'] = 0
 
             train_log_file = os.path.join(config.OUTPUT, 'train_log.json')
             with open(train_log_file, 'a') as f:

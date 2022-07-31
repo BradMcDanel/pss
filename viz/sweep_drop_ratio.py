@@ -6,16 +6,27 @@ plt = init_mpl()
 
 SECS_TO_HOUR = 3600
 
-ROOT = "/data/runs/deit"
-runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-v3", "small-cyclic-80-0-magnitude-ft-v2"]
-for run in runs:
+ROOT = "/data/runs/fracpatch/finetune/vit-b"
+runs = ["baseline", "magnitude_fixed_40",
+        "magnitude_linear_80_0", "magnitude_cyclic_80_0"]
+names = ["ViT-B", "+Fixed(0.6)", "+Linear(0.2, 1.0)", "+Cyclic(0.2, 1.0)"]
+colors = ["#1F78B4", "#FF7F0F", "#33A02C", "#E31A1C"]
+hashes = ['o', '^', 'v', 's']
+plt.figure(figsize=(8, 4))
+for i, run in enumerate(runs):
     train_path = os.path.join(ROOT, run, "sweep_drop.json")
     data = load_jsonl(train_path)
-    plt.plot([100. * d for d in data["drop_ratio"]], data["acc1"], '-o', linewidth=2, label=run)
+    keep_ratios = [1 - drop_ratio for drop_ratio in data["drop_ratio"]]
+    plt.plot(keep_ratios, data["acc1"],
+             label=names[i], color=colors[i], marker=hashes[i], linewidth=2)
 
-plt.title('ImageNet (VIT)')
-plt.xlabel('Patch Drop (%)')
-plt.ylabel('Validation Accuracy')
+plt.title('PSS Inference Performance')
+plt.xlabel(r'Patch Keep Rate $\rho$')
+plt.ylabel('Validation Acc. (%)')
+plt.ylim(0.6, 1.0)
+plt.ylim((78, 84))
+plt.xlim((0.375, 1.025))
+plt.gca().invert_xaxis()
 plt.legend(loc=0)
 plt.savefig('../figures/sweep-drop-ratio.pdf', dpi=300, bbox_inches='tight')
 plt.clf()

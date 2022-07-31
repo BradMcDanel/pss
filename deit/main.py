@@ -187,7 +187,10 @@ def get_args_parser():
                         help='start drop ratio')
     parser.add_argument('--patch-scheduler-end-drop-ratio', default=0.0, type=float,
                         help='end drop ratio')
-    parser.add_argument('--patch-drop-func', default='random', choices=['random', 'magnitude'],
+    parser.add_argument('--patch-scheduler-cooldown-epochs', default=0, type=int,
+                        help='patch cooldown epochs')
+    parser.add_argument('--patch-drop-func', default='random',
+                        choices=['random', 'magnitude'],
                         help='patch drop function')
 
     return parser

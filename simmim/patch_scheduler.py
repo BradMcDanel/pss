@@ -46,6 +46,10 @@ class LinearPatchScheduler:
         self.curr_iteration += 1
 
 
+    def set_epoch(self, epoch):
+        self.curr_iteration = epoch * self.iterations_per_epoch
+
+
     def get_patch_drop_ratio(self):
         iteration_pct = self.curr_iteration / self.total_iterations
         curr_patch_ratio = (1 - iteration_pct) * self.start_patch_drop_ratio + \
@@ -67,6 +71,10 @@ class CosinePatchScheduler:
 
     def step(self):
         self.curr_iteration += 1
+
+
+    def set_epoch(self, epoch):
+        self.curr_iteration = epoch * self.iterations_per_epoch
 
 
     def get_patch_drop_ratio(self):
@@ -94,6 +102,11 @@ class CyclicPatchScheduler:
 
     def step(self):
         self.curr_iteration += 1
+
+
+    def set_epoch(self, epoch):
+        self.curr_iteration = epoch * self.iterations_per_epoch
+
 
     def get_patch_drop_ratio(self):
         if self.curr_iteration > self.total_iterations - 1:

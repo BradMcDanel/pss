@@ -149,17 +149,48 @@ class Attention(nn.Module):
                 self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
                     self.window_size[0] * self.window_size[1] + 1,
                     self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
-            
-            relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
-            relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
 
-            B, nH, WH, _ = relative_position_bias.shape
+
+            # @torch.jit.script
+            # def add_rel_pos_bias_attn_patches(attn, relative_position_bias, patch_idxs,
+            #                                   B: int, nP: int):
+            #     for i in range(B):
+            #         s = i*nP
+            #         e = s + nP
+            #         img_rel_pos_bias = relative_position_bias[:, patch_idxs[s:e]]
+            #         img_rel_pos_bias = img_rel_pos_bias[:, :, patch_idxs[s:e]]
+            #         attn[i] += img_rel_pos_bias
+                
+            #     return attn
+            
+            # patch_idxs = patch_info[0][1]
+            # B, nP = patch_info[1]
+            # attn = add_rel_pos_bias_attn_patches(attn, relative_position_bias, patch_idxs, B, nP)
+
+            # old approach
+            # rpb = relative_position_bias.permute(2, 0, 1).contiguous()
+            # rpb = rpb.unsqueeze(0).repeat(B, 1, 1, 1)
+            # B, nH, WH, _ = rpb.shape
+            # patch_idxs, idx_shape = patch_info
+            # nP = idx_shape[1]
+            # rpb = rpb[patch_idxs[0], :, patch_idxs[1]]
+            # rpb = rpb.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
+            # rpb = rpb[patch_idxs[0], :, :, patch_idxs[1]]
+            # rpb = rpb.view(B, nP, nH, nP).permute(0, 2, 3, 1).contiguous()
+
+
             patch_idxs, idx_shape = patch_info
             nP = idx_shape[1]
+            relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+            B, WH, _, nH = relative_position_bias.shape
+            relative_position_bias = relative_position_bias[patch_idxs[0], patch_idxs[1]]
+            relative_position_bias = relative_position_bias.view(B, nP, WH, nH)
             relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
-            relative_position_bias = relative_position_bias[patch_idxs[0], :, :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nH, nP).permute(0, 2, 3, 1).contiguous()
+            relative_position_bias = relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
+
+            # allclose = torch.allclose(rpb, relative_position_bias)
+            # print(allclose)
+            # assert allclose
 
             attn = attn + relative_position_bias
 

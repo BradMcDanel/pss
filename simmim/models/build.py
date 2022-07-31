@@ -9,7 +9,6 @@
 from .swin_transformer import build_swin
 from .vision_transformer import build_vit
 from .fracpatch_vision_transformer import build_fracpatch_vit
-from .masked_vision_transformer import build_mvit
 from .simmim import build_simmim
 
 
@@ -24,8 +23,6 @@ def build_model(config, is_pretrain=True):
             model = build_vit(config)
         elif model_type == 'fracpatch_vit':
             model = build_fracpatch_vit(config)
-        elif model_type == 'mvit':
-            model = build_mvit(config)
         else:
             raise NotImplementedError(f"Unknown fine-tune model: {model_type}")
 
