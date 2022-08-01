@@ -47,10 +47,6 @@ for j in range(num_drop_ratios):
         axs[i][j].imshow(image, interpolation="nearest")
         axs[i][j].axis("off")
 
-        # add 16x16 pixel grid black
-        # for x in range(image.shape[0] // 16 + 1):
-        #     axs[i][j].plot([x*16, x*16], [0, image.shape[0]], "k-", linewidth=0.1, alpha=0.85)
-        #     axs[i][j].plot([0, image.shape[1]], [x*16, x*16], "k-", linewidth=0.1, alpha=0.85)
 
         kept_patch_idxs = np.array(data["kept_patches"][j][0])
         kept_patches = np.array(data["kept_patches"][j][1])
@@ -66,7 +62,7 @@ for j in range(num_drop_ratios):
                 # check if xy is in the list of kept patches
                 if (x, y) not in xy_idxs:
                     # add frosted glass effect (trasparent white square over the patch)
-                    axs[i][j].add_patch(plt.Rectangle((x*16, y*16), 16, 16, facecolor="white", alpha=0.75))
+                    axs[i][j].add_patch(plt.Rectangle((x*16, y*16), 16, 16, facecolor="white", edgecolor="black", alpha=0.8))
 
         if j == 0:
             class_name = imagenet_names[idx_to_class[data["targets"][i]]]
