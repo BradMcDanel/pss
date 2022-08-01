@@ -55,7 +55,10 @@ class LinearPatchScheduler:
         curr_patch_ratio = (1 - iteration_pct) * self.start_patch_drop_ratio + \
                            iteration_pct * self.end_patch_drop_ratio
 
-        return max(0.0, min(1.0, curr_patch_ratio))
+        ratio = max(0.0, min(1.0, curr_patch_ratio))
+        ratio = round(ratio * 5) / 5 # round to nearest 0.2
+        return ratio
+
 
 
 class CosinePatchScheduler:
@@ -79,13 +82,16 @@ class CosinePatchScheduler:
 
     def get_patch_drop_ratio(self):
         if self.curr_iteration == 0:
-            return self.start_patch_drop_ratio
+            ratio = self.start_patch_drop_ratio
         elif self.curr_iteration >= self.total_iterations - 1:
-            return self.end_patch_drop_ratio
+            ratio = self.end_patch_drop_ratio
         else:
-            return (self.end_patch_drop_ratio + (self.start_patch_drop_ratio-self.end_patch_drop_ratio) *
+            ratio = (self.end_patch_drop_ratio + (self.start_patch_drop_ratio-self.end_patch_drop_ratio) *
                     (1+math.cos((self.curr_iteration)*math.pi / self.total_iterations)) / 2)
 
+        ratio = max(0.0, min(1.0, ratio))
+        ratio = round(ratio * 5) / 5 # round to nearest 0.2
+        return ratio
 
 
 class CyclicPatchScheduler:
@@ -120,6 +126,9 @@ class CyclicPatchScheduler:
 
         curr_patch_ratio =  ((1 - iterations_pct) * self.start_patch_drop_ratio + \
                            iterations_pct * self.end_patch_drop_ratio)
+
+        curr_patch_ratio = max(0.0, min(1.0, curr_patch_ratio))
+        curr_patch_ratio = round(curr_patch_ratio * 5) / 5 # round to nearest 0.2
         return curr_patch_ratio
 
 
@@ -128,21 +137,21 @@ if __name__ == '__main__':
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 
-    patch_scheduler = LinearPatchScheduler(0.8, 0.0, 100, 1200, 10)
+    patch_scheduler = LinearPatchScheduler(0.8, -0.1, 100, 1200, 0)
     linear_ratios = []
     for i in range(100*1200):
         curr = patch_scheduler.get_patch_drop_ratio()
         linear_ratios.append(curr)
         patch_scheduler.step()
 
-    patch_scheduler = CosinePatchScheduler(0.8, 0.0, 100, 1200, 10)
+    patch_scheduler = CosinePatchScheduler(0.8, -0.1, 100, 1200, 0)
     cosine_ratios = []
     for i in range(100*1200):
         curr = patch_scheduler.get_patch_drop_ratio()
         cosine_ratios.append(curr)
         patch_scheduler.step()
 
-    patch_scheduler = CyclicPatchScheduler(0.8, 0.0, 100, 1200, 10)
+    patch_scheduler = CyclicPatchScheduler(0.8, -0.1, 100, 1200, 0)
     cyclic_ratios = []
     for i in range(100*1200):
         curr = patch_scheduler.get_patch_drop_ratio()

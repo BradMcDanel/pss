@@ -44,3 +44,12 @@ def ema(x, alpha=0.15):
         y.append(alpha * y[-1] + (1 - alpha) * x[i])
     
     return y
+
+def load_imagenet_names():
+    names = {}
+    with open("imagenet_names.txt") as f:
+        for line in f:
+            class_id, _, class_name = line.strip().split(" ")
+            names[class_id] = class_name
+
+    return names

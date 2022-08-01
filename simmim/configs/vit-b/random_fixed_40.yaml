@@ -21,11 +21,11 @@ TRAIN:
   WEIGHT_DECAY: 0.05
   LAYER_DECAY: 0.65
   PATCH_SCHEDULER:
-    NAME: 'cyclic'
-    START_PATCH_DROP_RATIO: 0.8
-    END_PATCH_DROP_RATIO: -0.1
+    NAME: 'linear'
+    START_PATCH_DROP_RATIO: 0.40
+    END_PATCH_DROP_RATIO: 0.40
     COOLDOWN_EPOCHS: 0
-  PATCH_DROP_FUNC: 'magnitude'
+  PATCH_DROP_FUNC: 'random'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: finetune/vit-b/magnitude_cyclic_80_0
+TAG: finetune/vit-b/random_fixed_40

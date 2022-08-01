@@ -150,49 +150,19 @@ class Attention(nn.Module):
                     self.window_size[0] * self.window_size[1] + 1,
                     self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
 
-
-            # @torch.jit.script
-            # def add_rel_pos_bias_attn_patches(attn, relative_position_bias, patch_idxs,
-            #                                   B: int, nP: int):
-            #     for i in range(B):
-            #         s = i*nP
-            #         e = s + nP
-            #         img_rel_pos_bias = relative_position_bias[:, patch_idxs[s:e]]
-            #         img_rel_pos_bias = img_rel_pos_bias[:, :, patch_idxs[s:e]]
-            #         attn[i] += img_rel_pos_bias
-                
-            #     return attn
-            
-            # patch_idxs = patch_info[0][1]
-            # B, nP = patch_info[1]
-            # attn = add_rel_pos_bias_attn_patches(attn, relative_position_bias, patch_idxs, B, nP)
-
-            # old approach
-            # rpb = relative_position_bias.permute(2, 0, 1).contiguous()
-            # rpb = rpb.unsqueeze(0).repeat(B, 1, 1, 1)
-            # B, nH, WH, _ = rpb.shape
-            # patch_idxs, idx_shape = patch_info
-            # nP = idx_shape[1]
-            # rpb = rpb[patch_idxs[0], :, patch_idxs[1]]
-            # rpb = rpb.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
-            # rpb = rpb[patch_idxs[0], :, :, patch_idxs[1]]
-            # rpb = rpb.view(B, nP, nH, nP).permute(0, 2, 3, 1).contiguous()
-
-
-            patch_idxs, idx_shape = patch_info
-            nP = idx_shape[1]
-            relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
-            B, WH, _, nH = relative_position_bias.shape
-            relative_position_bias = relative_position_bias[patch_idxs[0], patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, WH, nH)
-            relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
-
-            # allclose = torch.allclose(rpb, relative_position_bias)
-            # print(allclose)
-            # assert allclose
-
-            attn = attn + relative_position_bias
+            if patch_info is not None:
+                patch_idxs, idx_shape = patch_info
+                nP = idx_shape[1]
+                relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+                B, WH, _, nH = relative_position_bias.shape
+                relative_position_bias = relative_position_bias[patch_idxs[0], patch_idxs[1]]
+                relative_position_bias = relative_position_bias.view(B, nP, WH, nH)
+                relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
+                relative_position_bias = relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
+                attn = attn + relative_position_bias
+            else:
+                relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+                attn = attn + relative_position_bias.unsqueeze(0)
 
         if rel_pos_bias is not None:
             attn = attn + rel_pos_bias
@@ -401,9 +371,8 @@ class FracPatchVisionTransformer(nn.Module):
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x):
-        img = x.detach()
         x = self.patch_embed(x)
-        batch_size, seq_len, _ = x.size()
+        batch_size, _, _ = x.size()
 
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_tokens, x), dim=1)
@@ -419,12 +388,12 @@ class FracPatchVisionTransformer(nn.Module):
             print("Error: currently don't know how to handle this!")
             assert False
         
-        patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-        patch_idxs, idx_shape = patch_info
-
-        # viz_patches(img, x, patch_info)
-
-        x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+        if self.patch_drop_ratio > 0.0:
+            patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
+            patch_idxs, idx_shape = patch_info
+            x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+        else:
+            patch_info = None
 
         for blk in self.blocks:
             x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
@@ -441,6 +410,26 @@ class FracPatchVisionTransformer(nn.Module):
         x = self.forward_features(x)
         x = self.head(x)
         return x
+
+    def get_patch_info(self, x):
+        x = self.patch_embed(x)
+        batch_size, _, _ = x.size()
+
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        x = torch.cat((cls_tokens, x), dim=1)
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
+
+        # TODO: see if dropout still makes sense in this context
+        x = self.pos_drop(x)
+
+        # TODO: look into what rel_pos_bias is doing and if it is ever used..!
+        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
+        if rel_pos_bias is not None:
+            print("Error: currently don't know how to handle this!")
+            assert False
+        
+        return get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
 
 
 def viz_patches(img, x, patch_info):
