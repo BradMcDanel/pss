@@ -106,7 +106,7 @@ def load_pretrained(config, model, logger):
     if config.MODEL.TYPE == 'swin':
         # logger.info(f">>>>>>>>>> Remapping pre-trained keys for SWIN ..........")
         checkpoint = remap_pretrained_keys_swin(model, checkpoint_model, logger)
-    elif config.MODEL.TYPE in ['vit', 'fracpatch_vit', 'mvit']:
+    elif config.MODEL.TYPE in ['vit', 'fracpatch_vit', 'fracpatchlg_vit']:
         # logger.info(f">>>>>>>>>> Remapping pre-trained keys for VIT ..........")
         checkpoint = remap_pretrained_keys_vit(model, checkpoint_model, logger)
     else:

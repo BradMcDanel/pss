@@ -10,7 +10,7 @@ SECS_TO_HOUR = 3600
 
 ROOT = "/data/runs/fracpatch/finetune/vit-b/"
 # runs = ["baseline", "magnitude_cyclic_80_0", "random_cyclic_80_0", "magnitude_fixed_40"]
-runs = ["old", "magnitude_cyclic_80_0"]
+runs = ["baseline", "magnitude_cyclic_80_0"]
 # ROOT = "/data/runs/deit"
 # runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-ft-v2"]
 train_datas, val_datas = {}, {}
@@ -61,7 +61,7 @@ for run in runs:
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Time (Hours)')
-plt.ylim((65, 84))
+plt.ylim((70, 84))
 plt.ylabel('Validation Accuracy')
 plt.legend(loc=0)
 plt.savefig('../figures/validation-accuracy-time.pdf', dpi=300, bbox_inches='tight')
@@ -73,7 +73,7 @@ for run in runs:
 
 plt.title("ImageNet (VIT)")
 plt.xlabel('Iteration')
-# plt.ylim((65, 84))
+# plt.ylim((70, 84))
 plt.ylabel('Learning Rate')
 plt.legend(loc=0)
 plt.savefig('../figures/learning-rates.pdf', dpi=300, bbox_inches='tight')

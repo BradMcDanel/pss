@@ -29,6 +29,8 @@ from logger import create_logger
 from utils import load_checkpoint, load_pretrained, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
 from patch_scheduler import build_patch_scheduler
 
+FP_MODELS = ["fracpatch_vit", "fracpatchlg_vit"]
+
 try:
     # noinspection PyUnresolvedReferences
     from apex import amp
@@ -132,7 +134,7 @@ def main(config):
         return
 
 
-    if config.MODEL.TYPE == 'fracpatch_vit':
+    if config.MODEL.TYPE in FP_MODELS:
         logger.info(f'PATCH DROP FUNC: {config.TRAIN.PATCH_DROP_FUNC}')
         logger.info(f'PATCH DROP SCHEDULE: {config.TRAIN.PATCH_SCHEDULER.NAME}')
         model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
@@ -146,13 +148,13 @@ def main(config):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
 
-        if config.MODEL.TYPE == 'fracpatch_vit':
+        if config.MODEL.TYPE  in FP_MODELS:
             # Set drop ratio to 0 for validation
             model.module.set_patch_drop_ratio(0.0)
 
         acc1, acc5, loss = validate(config, data_loader_val, model, epoch)
 
-        if config.MODEL.TYPE == 'fracpatch_vit':
+        if config.MODEL.TYPE in FP_MODELS:
             # Set back drop ratio to prior value
             model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
 
@@ -189,6 +191,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         cpu_time_end = time.time()
         cpu_time = cpu_time_end - cpu_time_start
 
+        model.module.set_gate_learn(idx % 10 == 0)
         gpu_time_start = time.time()
         outputs = model(samples)
 
@@ -234,7 +237,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         torch.cuda.synchronize()
 
 
-        if config.MODEL.TYPE == 'fracpatch_vit':
+        if config.MODEL.TYPE in FP_MODELS:
             # set patch drop ratio
             model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
             patch_scheduler.step()
@@ -277,7 +280,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 'memory': memory_used,
             }
 
-            if config.MODEL.TYPE == 'fracpatch_vit':
+            if config.MODEL.TYPE in FP_MODELS:
                 train_info['patch_drop_ratio'] =  patch_scheduler.get_patch_drop_ratio()
             else:
                 train_info['patch_drop_ratio'] = 0
