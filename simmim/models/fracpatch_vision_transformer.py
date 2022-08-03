@@ -567,8 +567,6 @@ class FracPatchLGVisionTransformer(nn.Module):
             self.head.bias.data.mul_(init_scale)
 
         self.patch_drop_ratio = 0.8
-
-
         self.predictor_lg = PredictorLG(embed_dim=embed_dim)
 
         self.use_grad = False
@@ -588,7 +586,7 @@ class FracPatchLGVisionTransformer(nn.Module):
 
             # add group to optimizer
             lr = optimizer.param_groups[-1]['lr']
-            scale = 10000.0
+            scale = 10.0
             optimizer.add_param_group({
                 "group_name": "predictor_lg",
                 "weight_decay": 0.0,
@@ -673,9 +671,8 @@ class FracPatchLGVisionTransformer(nn.Module):
             assert False
          
         # print(self.predictor_lg.out_conv[0].weight.data[0,0])
-
+        # print(self.patch_embed.proj.weight.data[0,0,0,0])
         if self.patch_drop_ratio > 0.0 and not self.use_grad:
-            print(self.patch_drop_func)
             patch_info = get_patch_idxs(x, self.patch_drop_func, self.
                                         patch_drop_ratio,
                                         self.predictor_lg)

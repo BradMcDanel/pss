@@ -14,7 +14,6 @@ import json
 import numpy as np
 
 import torch
-torch.autograd.set_detect_anomaly(True)
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
@@ -86,7 +85,7 @@ def main(config):
     optimizer = build_optimizer(config, model, logger, is_pretrain=False)
     if config.AMP_OPT_LEVEL != "O0":
         model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False, find_unused_parameters=True)
     model_without_ddp = model.module
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -179,7 +178,6 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
-    unused_last = False
     start = time.time()
     end = time.time()
     cpu_time_start = time.time()
@@ -196,15 +194,8 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         # print(model.find_unused_parameters, unused_last)
         # set the gate to learn or not based on iteration
         if config.MODEL.TYPE == "fracpatchlg_vit":
-            # use_grad = idx % 10 == 0
-            use_grad = False
-            if unused_last:
-                model.find_unused_parameters = False
-                unused_last = False
-
+            use_grad = idx % 10 == 0
             if use_grad != model.module.use_grad:
-                model.find_unused_parameters = True
-                unused_last = True
                 model.module.set_gate_learn(use_grad, optimizer)
 
         gpu_time_start = time.time()

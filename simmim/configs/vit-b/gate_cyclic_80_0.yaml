@@ -1,5 +1,5 @@
 MODEL:
-  TYPE: fracpatch_vit
+  TYPE: fracpatchlg_vit
   NAME: fracpatch
   DROP_PATH_RATE: 0.1
   VIT:
@@ -25,7 +25,7 @@ TRAIN:
     START_PATCH_DROP_RATIO: 0.8
     END_PATCH_DROP_RATIO: 0.0
     COOLDOWN_EPOCHS: 0
-  PATCH_DROP_FUNC: 'magnitude'
+  PATCH_DROP_FUNC: 'gate'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
 TAG: finetune/vit-b/gate_cyclic_80_0
