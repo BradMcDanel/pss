@@ -10,7 +10,7 @@ SECS_TO_HOUR = 3600
 
 ROOT = "/data/runs/fracpatch/finetune/vit-b/"
 # runs = ["baseline", "magnitude_cyclic_80_0", "random_cyclic_80_0", "magnitude_fixed_40"]
-runs = ["baseline", "magnitude_cyclic_80_0"]
+runs = ["baseline", "magnitude_cyclic_80_0", "gate_cyclic_80_0"]
 # ROOT = "/data/runs/deit"
 # runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-ft-v2"]
 train_datas, val_datas = {}, {}

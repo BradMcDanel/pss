@@ -14,6 +14,7 @@ import json
 import numpy as np
 
 import torch
+torch.autograd.set_detect_anomaly(True)
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
@@ -178,6 +179,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
+    unused_last = False
     start = time.time()
     end = time.time()
     cpu_time_start = time.time()
@@ -191,7 +193,20 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         cpu_time_end = time.time()
         cpu_time = cpu_time_end - cpu_time_start
 
-        model.module.set_gate_learn(idx % 10 == 0)
+        # print(model.find_unused_parameters, unused_last)
+        # set the gate to learn or not based on iteration
+        if config.MODEL.TYPE == "fracpatchlg_vit":
+            # use_grad = idx % 10 == 0
+            use_grad = False
+            if unused_last:
+                model.find_unused_parameters = False
+                unused_last = False
+
+            if use_grad != model.module.use_grad:
+                model.find_unused_parameters = True
+                unused_last = True
+                model.module.set_gate_learn(use_grad, optimizer)
+
         gpu_time_start = time.time()
         outputs = model(samples)
 
@@ -221,6 +236,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
             if config.AMP_OPT_LEVEL != "O0":
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
+
                 if config.TRAIN.CLIP_GRAD:
                     grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), config.TRAIN.CLIP_GRAD)
                 else:
@@ -231,6 +247,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
                 else:
                     grad_norm = get_grad_norm(model.parameters())
+
             optimizer.step()
             lr_scheduler.step_update(epoch * num_steps + idx)
 

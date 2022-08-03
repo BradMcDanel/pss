@@ -143,21 +143,30 @@ def get_finetune_param_groups(model, logger, lr, weight_decay, get_layer_func, s
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue
-        if len(param.shape) == 1 or name.endswith(".bias") or (name in skip_list) or \
+
+        if "predictor_lg" in name:
+            continue
+            group_name = "predictor_lg"
+            this_weight_decay = 0.
+            layer_id = None
+        elif len(param.shape) == 1 or name.endswith(".bias") or (name in skip_list) or \
                 check_keywords_in_name(name, skip_keywords):
             group_name = "no_decay"
             this_weight_decay = 0.
         else:
             group_name = "decay"
             this_weight_decay = weight_decay
-        if get_layer_func is not None:
+
+        if get_layer_func is not None and group_name != "predictor_lg":
             layer_id = get_layer_func(name)
             group_name = "layer_%d_%s" % (layer_id, group_name)
         else:
             layer_id = None
 
         if group_name not in parameter_group_names:
-            if scales is not None:
+            if group_name == "predictor_lg":
+                scale = 10000.0
+            elif scales is not None:
                 scale = scales[layer_id]
             else:
                 scale = 1.

@@ -10,6 +10,9 @@
 import random
 import math
 from functools import partial
+from time import time
+
+from requests import request
 
 import torch
 import torch.nn as nn
@@ -65,7 +68,7 @@ def get_gate_patches(x, drop_ratio, predictor_lg):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
     spatial_x = x[:, 1:]
-    logits = predictor_lg(spatial_x) 
+    logits = predictor_lg(spatial_x).detach()
 
     keep_patches = logits.argsort(dim=1, descending=True) + 1
     keep_patches = keep_patches[:, :keep_point]
@@ -86,15 +89,37 @@ def soft_gate_patches(x, drop_ratio, predictor_lg, noise_epsilon=1e-2):
     keep_point = int(round((1-drop_ratio)*N)) - 1
     cls_x = x[:, 0]
     spatial_x = x[:, 1:]
+
+    # get logits from gate
     logits = predictor_lg(spatial_x) 
-    logits += torch.randn_like(logits) + noise_epsilon
 
+    # add noise to logits
+    logits += torch.randn_like(logits, device=logits.device) * noise_epsilon
+
+    # find cut point
     logit_cut = logits.sort(dim=1, descending=True)[0][:, keep_point].unsqueeze(1)
-    spatial_x[logits < logit_cut] = 0
 
+    # update logits below cut to be 0
+    logits = torch.where(logits < logit_cut, torch.zeros_like(logits), logits)
+
+    # update spatial_x with logits
+    spatial_x = spatial_x * logits.unsqueeze(2)
+
+    # add back cls token
     x = torch.cat((cls_x.unsqueeze(1), spatial_x), dim=1)
 
     return x 
+
+
+# def soft_gate_patches(x, drop_ratio, predictor_lg, noise_epsilon=1e-2):
+#     noise_epsilon=1e-2
+#     B, N, C = x.shape
+#     logits = predictor_lg(x) 
+#     logits += torch.ones_like(logits) * noise_epsilon
+#     x *= logits.unsqueeze(2)
+
+#     return x 
+
 
 
 class Mlp(nn.Module):
@@ -483,7 +508,6 @@ class PredictorLG(nn.Module):
             nn.Linear(embed_dim // 2, embed_dim // 4),
             nn.GELU(),
             nn.Linear(embed_dim // 4, 1),
-            nn.LogSoftmax(dim=-1)
         )
 
     def forward(self, x):
@@ -542,24 +566,48 @@ class FracPatchLGVisionTransformer(nn.Module):
             self.head.weight.data.mul_(init_scale)
             self.head.bias.data.mul_(init_scale)
 
-        self.patch_drop_ratio = 0.0
+        self.patch_drop_ratio = 0.8
+
+
         self.predictor_lg = PredictorLG(embed_dim=embed_dim)
 
-        # disable gradients for predictor_lg to start
+        self.use_grad = False
         for param in self.predictor_lg.parameters():
             param.requires_grad = False
-        
-        self.use_grad = True
 
-    def set_gate_learn(self, use_grad):
+
+    def set_gate_learn(self, use_grad, optimizer):
+        if use_grad == self.use_grad:
+            return
+
         # enable gradients
         self.use_grad = use_grad
-        if use_grad:
+        if self.use_grad:
             for param in self.predictor_lg.parameters():
                 param.requires_grad = True
+
+            # add group to optimizer
+            lr = optimizer.param_groups[-1]['lr']
+            scale = 10000.0
+            optimizer.add_param_group({
+                "group_name": "predictor_lg",
+                "weight_decay": 0.0,
+                "params": self.predictor_lg.parameters(),
+                "lr": lr * scale,
+                "lr_scale": scale,
+            })
+
+        # disable gradients
         else:
             for param in self.predictor_lg.parameters():
                 param.requires_grad = False
+            
+            # delete group from optimizer
+            for i, group in enumerate(optimizer.param_groups):
+                if group["group_name"] == "predictor_lg":
+                    # delete the group
+                    del optimizer.param_groups[i]
+                    break
 
     
     def set_patch_drop_ratio(self, ratio):
@@ -623,9 +671,13 @@ class FracPatchLGVisionTransformer(nn.Module):
         if rel_pos_bias is not None:
             print("Error: currently don't know how to handle this!")
             assert False
+         
+        # print(self.predictor_lg.out_conv[0].weight.data[0,0])
 
         if self.patch_drop_ratio > 0.0 and not self.use_grad:
-            patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio,
+            print(self.patch_drop_func)
+            patch_info = get_patch_idxs(x, self.patch_drop_func, self.
+                                        patch_drop_ratio,
                                         self.predictor_lg)
             patch_idxs, idx_shape = patch_info
             x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
@@ -695,6 +747,7 @@ def build_fracpatch_vit(config):
         use_shared_rel_pos_bias=config.MODEL.VIT.USE_SHARED_RPB,
         use_mean_pooling=config.MODEL.VIT.USE_MEAN_POOLING)
 
+    print("here")
     return model
 
 
