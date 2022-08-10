@@ -44,9 +44,6 @@ for j in range(num_drop_ratios):
         pred_idx = sorted_idxs[0]
         pred_conf = logits[pred_idx]
 
-        axs[i][j].imshow(image, interpolation="nearest")
-        axs[i][j].axis("off")
-
 
         kept_patch_idxs = np.array(data["kept_patches"][j][0])
         kept_patches = np.array(data["kept_patches"][j][1])
@@ -59,10 +56,23 @@ for j in range(num_drop_ratios):
         xy_idxs = get_xy_from_idxs(image_patches, image.shape[1] // 16)
         for x in range(image.shape[0] // 16):
             for y in range(image.shape[1] // 16):
-                # check if xy is in the list of kept patches
+                # set image area to white with black outline and alpha=0.5
                 if (x, y) not in xy_idxs:
-                    # add frosted glass effect (trasparent white square over the patch)
-                    axs[i][j].add_patch(plt.Rectangle((x*16, y*16), 16, 16, facecolor="white", edgecolor="black", alpha=0.8))
+                    xs, xe = x*16, (x+1)*16
+                    ys, ye = y*16, (y+1)*16
+                    # blend image region with white to make transparent
+                    image[ys:ye, xs:xe] = image[ys:ye, xs:xe] * 0.2 + 0.8
+
+                    # add black border
+                    image[ys:ys+1, xs:xe] = 0
+                    image[ye-1:ye, xs:xe] = 0
+                    image[ys:ye, xs:xs+1] = 0
+                    image[ys:ye, xe-1:xe] = 0
+
+
+
+        axs[i][j].imshow(image, interpolation="nearest")
+        axs[i][j].axis("off")
 
         if j == 0:
             class_name = imagenet_names[idx_to_class[data["targets"][i]]]

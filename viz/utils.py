@@ -1,4 +1,5 @@
 import json
+import numpy as np
 
 def init_mpl():
     import matplotlib
@@ -34,6 +35,21 @@ def load_jsonl(path):
 
     return columns
 
+
+def ma(x, window=10):
+    """
+    Compute moving average, but keep size same as x
+    """
+    if len(x) == 0:
+        return x
+
+    y = [x[0]]
+    for i in range(1, len(x)):
+        y.append(np.mean(x[i-window:i]))
+
+    assert len(y) == len(x)
+    return y
+    
 
 def ema(x, alpha=0.15):
     if len(x) == 0:

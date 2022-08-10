@@ -1,21 +1,16 @@
-# --------------------------------------------------------
-# Copyright (C) 2022 Brad McDannel
-# SimMIM
-# Copyright (c) 2021 Microsoft
-# Licensed under The MIT License [see LICENSE for details]
-# Based on BEIT code bases (https://github.com/microsoft/unilm/tree/master/beit)
-# Written by Yutong Lin, Zhenda Xie
-# --------------------------------------------------------
-
+import random
 import math
 from functools import partial
+from time import time
+
+from requests import request
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
-def get_patch_idxs(x, drop_func, drop_ratio):
+def get_patch_idxs(x, drop_func, drop_ratio, predictor_lg=None):
     if drop_func == "random":
         return get_random_patches(x, drop_ratio)
     elif drop_func == "magnitude":
@@ -37,11 +32,12 @@ def get_random_patches(x, drop_ratio):
 
     return (batch_idxs, patch_idxs), (B, keep_point + 1)
 
+
 def get_magnitude_patches(x, drop_ratio):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
 
-    # sample patches using their magnitude
+    # sample patches using their l1 magnitude
     sample_mat = x[:, 1:].abs().sum(dim=2)
     sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
 
@@ -81,7 +77,7 @@ class Mlp(nn.Module):
 class Attention(nn.Module):
     def __init__(
             self, dim, num_heads=8, qkv_bias=False, qk_scale=None, attn_drop=0.,
-            proj_drop=0., window_size=None, attn_head_dim=None, drop_scale=0.0):
+            proj_drop=0., window_size=None, attn_head_dim=None):
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
@@ -89,7 +85,6 @@ class Attention(nn.Module):
             head_dim = attn_head_dim
         all_head_dim = head_dim * self.num_heads
         self.scale = qk_scale or head_dim ** -0.5
-        self.drop_scale = drop_scale
 
         self.qkv = nn.Linear(dim, all_head_dim * 3, bias=False)
         if qkv_bias:
@@ -150,19 +145,20 @@ class Attention(nn.Module):
                 self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
                     self.window_size[0] * self.window_size[1] + 1,
                     self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
-            
-            relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
-            relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
 
-            B, nH, WH, _ = relative_position_bias.shape
-            patch_idxs, idx_shape = patch_info
-            nP = idx_shape[1]
-            relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nH, WH).permute(0, 2, 1, 3).contiguous()
-            relative_position_bias = relative_position_bias[patch_idxs[0], :, :, patch_idxs[1]]
-            relative_position_bias = relative_position_bias.view(B, nP, nH, nP).permute(0, 2, 3, 1).contiguous()
-
-            attn = attn + relative_position_bias
+            if patch_info is not None:
+                patch_idxs, idx_shape = patch_info
+                nP = idx_shape[1]
+                relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+                B, WH, _, nH = relative_position_bias.shape
+                relative_position_bias = relative_position_bias[patch_idxs[0], patch_idxs[1]]
+                relative_position_bias = relative_position_bias.view(B, nP, WH, nH)
+                relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
+                relative_position_bias = relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
+                attn = attn + relative_position_bias
+            else:
+                relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
+                attn = attn + relative_position_bias.unsqueeze(0)
 
         if rel_pos_bias is not None:
             attn = attn + rel_pos_bias
@@ -177,14 +173,15 @@ class Attention(nn.Module):
 
 
 class Block(nn.Module):
+
     def __init__(self, dim, num_heads, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop=0., attn_drop=0.,
                  drop_path=0., init_values=None, act_layer=nn.GELU, norm_layer=nn.LayerNorm,
-                 window_size=None, attn_head_dim=None, drop_scale=0.0):
+                 window_size=None, attn_head_dim=None):
         super().__init__()
         self.norm1 = norm_layer(dim)
         self.attn = Attention(
             dim, num_heads=num_heads, qkv_bias=qkv_bias, qk_scale=qk_scale,
-            attn_drop=attn_drop, proj_drop=drop, window_size=window_size, attn_head_dim=attn_head_dim, drop_scale=drop_scale)
+            attn_drop=attn_drop, proj_drop=drop, window_size=window_size, attn_head_dim=attn_head_dim)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
@@ -201,8 +198,7 @@ class Block(nn.Module):
             x = x + self.drop_path(self.attn(self.norm1(x), patch_info, rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.mlp(self.norm2(x)))
         else:
-            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x), patch_info, 
-                                                            rel_pos_bias=rel_pos_bias))
+            x = x + self.drop_path(self.gamma_1 * self.attn(self.norm1(x), patch_info, rel_pos_bias=rel_pos_bias))
             x = x + self.drop_path(self.gamma_2 * self.mlp(self.norm2(x)))
         return x
 
@@ -268,24 +264,19 @@ class RelativePositionBias(nn.Module):
         return relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
 
 
-class PatchDropVisionTransformer(nn.Module):
+class FracPatchVisionTransformer(nn.Module):
     """ Vision Transformer with support for patch or hybrid CNN input stage
     """
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768,    
-                 depth=12, num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, 
-                 drop_rate=0., attn_drop_rate=0.,
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
+                 num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
                  drop_path_rate=0., norm_layer=nn.LayerNorm, init_values=None,
                  use_abs_pos_emb=True, use_rel_pos_bias=False, use_shared_rel_pos_bias=False,
-                 use_mean_pooling=True, init_scale=0.001, drop_scales=None):
+                 use_mean_pooling=True, init_scale=0.001):
         super().__init__()
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim
         self.patch_size = patch_size
         self.in_chans = in_chans
-        if drop_scales is None:
-            self.drop_scales = [0. for _ in range(depth)]
-        else:
-            self.drop_scales = drop_scales
 
         self.patch_embed = PatchEmbed(
             img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
@@ -328,8 +319,8 @@ class PatchDropVisionTransformer(nn.Module):
             self.head.bias.data.mul_(init_scale)
 
         self.patch_drop_ratio = 0.0
-        self.patch_drop_func = 'random'
-
+        self.patch_drop_func = "magnitude"
+    
 
     def set_patch_drop_ratio(self, ratio):
         self.patch_drop_ratio = ratio
@@ -376,9 +367,8 @@ class PatchDropVisionTransformer(nn.Module):
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
     def forward_features(self, x):
-        img = x.detach()
         x = self.patch_embed(x)
-        batch_size, seq_len, _ = x.size()
+        batch_size, _, _ = x.size()
 
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         x = torch.cat((cls_tokens, x), dim=1)
@@ -394,23 +384,15 @@ class PatchDropVisionTransformer(nn.Module):
             print("Error: currently don't know how to handle this!")
             assert False
         
-        patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-        patch_idxs, idx_shape = patch_info
-
-        x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+        if self.patch_drop_ratio > 0.0:
+            patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
+            patch_idxs, idx_shape = patch_info
+            x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+        else:
+            patch_info = None
 
         for blk in self.blocks:
             x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
-
-        # for i, blk in enumerate(self.blocks):
-        #     blk_drop_ratio = self.patch_drop_ratio * self.drop_scales[i]
-        #     if blk_drop_ratio > 0 or i == 0:
-        #         patch_info = get_patch_idxs(x, self.patch_drop_func, blk_drop_ratio)
-
-        #         patch_idxs, idx_shape = patch_info
-        #         x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
-
-        #     x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
 
         x = self.norm(x)
         if self.fc_norm is not None:
@@ -426,68 +408,22 @@ class PatchDropVisionTransformer(nn.Module):
         return x
 
 
-def viz_patches(img, x, patch_info):
-    import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import math
+    def get_patch_info(self, x):
+        x = self.patch_embed(x)
+        batch_size, _, _ = x.size()
 
-    patch_idxs, idx_shape = patch_info
-    B, N, C = x.shape
-    print(img.shape, x.shape)
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        x = torch.cat((cls_tokens, x), dim=1)
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
 
-    sample_mat = x.abs().sum(dim=2)
-    sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
-    noise_std = sample_mat.std()
-    noise = torch.zeros(B, N, device=x.device)
-    noise = trunc_normal_(noise, std=noise_std)
-    sample_mat = sample_mat + noise
+        # TODO: see if dropout still makes sense in this context
+        x = self.pos_drop(x)
 
-    num_patch_row = int(math.sqrt(x.shape[1]))
-    patch_size = int(img.shape[2] / num_patch_row)
-    #repeat to match img shape
-    sample_mat = sample_mat[:, 1:].view(-1, num_patch_row, num_patch_row)
-    print(sample_mat.shape)
-    sample_mat = sample_mat.repeat_interleave(patch_size, dim=1).repeat_interleave(patch_size, dim=2)
-    print(patch_size)
-    print(sample_mat.shape)
-
-    for i in range(25):
-        # patches = x.shape[1] - 1
-        # patch_order = patch_idxs[1][1:patches]
-        ex = img[i].detach().cpu().permute(1, 2, 0).numpy()
-        # change colors to rgb
-        ex = ex[:, :, ::-1]
-        # plot the image
-        plt.imshow(ex)
-
-        # overlay transparent sample_mat
-        sample_ex = sample_mat[i].detach().cpu()
-        plt.imshow(sample_ex, alpha=0.75)
-        plt.colorbar()
-        plt.savefig(f'scratch/{i}-noise.png', dpi=300)
-        plt.clf()
-    assert False
-
-
-def build_fracpatch_vit(config):
-    model = FracPatchVisionTransformer(
-        img_size=config.DATA.IMG_SIZE,
-        patch_size=config.MODEL.VIT.PATCH_SIZE,
-        in_chans=config.MODEL.VIT.IN_CHANS,
-        num_classes=config.MODEL.NUM_CLASSES,
-        embed_dim=config.MODEL.VIT.EMBED_DIM,
-        depth=config.MODEL.VIT.DEPTH,
-        num_heads=config.MODEL.VIT.NUM_HEADS,
-        mlp_ratio=config.MODEL.VIT.MLP_RATIO,
-        qkv_bias=config.MODEL.VIT.QKV_BIAS,
-        drop_rate=config.MODEL.DROP_RATE,
-        drop_path_rate=config.MODEL.DROP_PATH_RATE,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        init_values=config.MODEL.VIT.INIT_VALUES,
-        use_abs_pos_emb=config.MODEL.VIT.USE_APE,
-        use_rel_pos_bias=config.MODEL.VIT.USE_RPB,
-        use_shared_rel_pos_bias=config.MODEL.VIT.USE_SHARED_RPB,
-        use_mean_pooling=config.MODEL.VIT.USE_MEAN_POOLING)
-
-    return model
+        # TODO: look into what rel_pos_bias is doing and if it is ever used..!
+        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
+        if rel_pos_bias is not None:
+            print("Error: currently don't know how to handle this!")
+            assert False
+        
+        return get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)

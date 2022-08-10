@@ -38,16 +38,14 @@ for i, run in enumerate(runs):
 
     # "acc% in x hours"
     if i == 0:
-        axs[0].text(x_pos-4, y_pos-5, "%.2f%% in\n%.2f hours" % (y_pos, x_pos),
+        axs[0].text(x_pos-3.5, y_pos-5.5, "%.2f%% in\n%.2f hours" % (y_pos, x_pos),
                     fontsize=12, color=colors[i], ha="center", va="center")
         axs[0].plot([x_pos, x_pos-4], [y_pos, y_pos-3], "k-", linewidth=1)
 
     else:
-        axs[0].text(x_pos-3, y_pos-5, "%.2f%% in\n%.2f hours" % (y_pos, x_pos),
+        axs[0].text(x_pos-5, y_pos-5.5, "%.2f%% in\n%.2f hours" % (y_pos, x_pos),
                     fontsize=12, color=colors[i], ha="center", va="center")
         axs[0].plot([x_pos, x_pos-3], [y_pos, y_pos-3], "k-", linewidth=1)
-    
-
 
 
 # plt.title('ImageNet (ViT-B)')

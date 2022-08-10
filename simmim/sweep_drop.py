@@ -63,6 +63,11 @@ def parse_option():
 def main(config):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config, logger, is_pretrain=False)
 
+    if config.MODEL.TYPE == "vit":
+        config.defrost()
+        config.MODEL.TYPE = "fracpatch_vit"
+        config.freeze()
+
     model = build_model(config, is_pretrain=False)
     model.cuda()
 
@@ -71,7 +76,7 @@ def main(config):
 
     load_pretrained(config, model_without_ddp, logger)
 
-    model.module.set_patch_drop_func("magnitude")
+    model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
     print(model.module.patch_drop_func)
     drop_ratios = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     results = []

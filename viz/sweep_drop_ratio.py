@@ -20,7 +20,7 @@ for i, run in enumerate(runs):
     plt.plot(keep_ratios, data["acc1"],
              label=names[i], color=colors[i], marker=hashes[i], linewidth=2)
 
-plt.title('PSS Inference Performance')
+plt.title('PSS Dynamic Inference')
 plt.xlabel(r'Patch Keep Rate $\rho$')
 plt.ylabel('Validation Acc. (%)')
 plt.ylim(0.6, 1.0)

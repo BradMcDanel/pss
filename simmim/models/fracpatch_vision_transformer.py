@@ -24,6 +24,8 @@ def get_patch_idxs(x, drop_func, drop_ratio, predictor_lg=None):
         return get_random_patches(x, drop_ratio)
     elif drop_func == "magnitude":
         return get_magnitude_patches(x, drop_ratio)
+    elif drop_func == "l2_magnitude":
+        return get_l2_magnitude_patches(x, drop_ratio)
     elif drop_func == "gate":
         return get_gate_patches(x, drop_ratio, predictor_lg)
     else:
@@ -43,12 +45,34 @@ def get_random_patches(x, drop_ratio):
 
     return (batch_idxs, patch_idxs), (B, keep_point + 1)
 
+
 def get_magnitude_patches(x, drop_ratio):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
 
-    # sample patches using their magnitude
+    # sample patches using their l1 magnitude
     sample_mat = x[:, 1:].abs().sum(dim=2)
+    sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
+
+    keep_patches = sample_mat.argsort(dim=1, descending=True) + 1
+    keep_patches = keep_patches[:, :keep_point]
+
+    # do not drop cls patch
+    cls_idx = torch.zeros((B, 1), device=keep_patches.device, dtype=keep_patches.dtype)
+
+    batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
+    patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
+
+
+    return (batch_idxs, patch_idxs), (B, keep_point + 1)
+
+
+def get_l2_magnitude_patches(x, drop_ratio):
+    B, N, C = x.shape
+    keep_point = int(round((1-drop_ratio)*N)) - 1
+
+    # sample patches using their l2 magnitude
+    sample_mat = (x[:, 1:]**2).sum(dim=2)
     sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
 
     keep_patches = sample_mat.argsort(dim=1, descending=True) + 1
@@ -67,10 +91,13 @@ def get_magnitude_patches(x, drop_ratio):
 def get_gate_patches(x, drop_ratio, predictor_lg):
     B, N, C = x.shape
     keep_point = int(round((1-drop_ratio)*N)) - 1
-    spatial_x = x[:, 1:]
-    logits = predictor_lg(spatial_x).detach()
+    x = predictor_lg(x)
 
-    keep_patches = logits.argsort(dim=1, descending=True) + 1
+    # sample patches using their magnitude
+    sample_mat = x[:, 1:].abs().sum(dim=2)
+    sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
+
+    keep_patches = sample_mat.argsort(dim=1, descending=True) + 1
     keep_patches = keep_patches[:, :keep_point]
 
     # do not drop cls patch
@@ -79,47 +106,7 @@ def get_gate_patches(x, drop_ratio, predictor_lg):
     batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
     patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
 
-
-    return (batch_idxs, patch_idxs), (B, keep_point + 1)
-
-
-def soft_gate_patches(x, drop_ratio, predictor_lg, noise_epsilon=1e-2):
-    noise_epsilon=1e-2
-    B, N, C = x.shape
-    keep_point = int(round((1-drop_ratio)*N)) - 1
-    cls_x = x[:, 0]
-    spatial_x = x[:, 1:]
-
-    # get logits from gate
-    logits = predictor_lg(spatial_x) 
-
-    # add noise to logits
-    logits += torch.randn_like(logits, device=logits.device) * noise_epsilon
-
-    # find cut point
-    logit_cut = logits.sort(dim=1, descending=True)[0][:, keep_point].unsqueeze(1)
-
-    # update logits below cut to be 0
-    logits = torch.where(logits < logit_cut, torch.zeros_like(logits), logits)
-
-    # update spatial_x with logits
-    spatial_x = spatial_x * logits.unsqueeze(2)
-
-    # add back cls token
-    x = torch.cat((cls_x.unsqueeze(1), spatial_x), dim=1)
-
-    return x 
-
-
-# def soft_gate_patches(x, drop_ratio, predictor_lg, noise_epsilon=1e-2):
-#     noise_epsilon=1e-2
-#     B, N, C = x.shape
-#     logits = predictor_lg(x) 
-#     logits += torch.ones_like(logits) * noise_epsilon
-#     x *= logits.unsqueeze(2)
-
-#     return x 
-
+    return ((batch_idxs, patch_idxs), (B, keep_point + 1)), x
 
 
 class Mlp(nn.Module):
@@ -387,7 +374,7 @@ class FracPatchVisionTransformer(nn.Module):
             self.head.bias.data.mul_(init_scale)
 
         self.patch_drop_ratio = 0.0
-        self.patch_drop_func = 'random'
+        self.patch_drop_func = "magnitude"
     
 
     def set_patch_drop_ratio(self, ratio):
@@ -496,233 +483,6 @@ class FracPatchVisionTransformer(nn.Module):
         
         return get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
 
-class PredictorLG(nn.Module):
-    # adapted from https://github.com/raoyongming/DynamicViT/blob/master/models/dyvit.py#L287
-    """ Image to Patch Embedding
-    """
-    def __init__(self, embed_dim=384):
-        super().__init__()
-        self.out_conv = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim // 2),
-            nn.GELU(),
-            nn.Linear(embed_dim // 2, embed_dim // 4),
-            nn.GELU(),
-            nn.Linear(embed_dim // 4, 1),
-        )
-
-    def forward(self, x):
-        return self.out_conv(x).squeeze(-1)
-
-
-class FracPatchLGVisionTransformer(nn.Module):
-    def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dim=768, depth=12,
-                 num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
-                 drop_path_rate=0., norm_layer=nn.LayerNorm, init_values=None,
-                 use_abs_pos_emb=True, use_rel_pos_bias=False, use_shared_rel_pos_bias=False,
-                 use_mean_pooling=True, init_scale=0.001):
-        super().__init__()
-        self.num_classes = num_classes
-        self.num_features = self.embed_dim = embed_dim
-        self.patch_size = patch_size
-        self.in_chans = in_chans
-
-        self.patch_embed = PatchEmbed(
-            img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
-        num_patches = self.patch_embed.num_patches
-
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        if use_abs_pos_emb:
-            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim))
-        else:
-            self.pos_embed = None
-        self.pos_drop = nn.Dropout(p=drop_rate)
-
-        if use_shared_rel_pos_bias:
-            self.rel_pos_bias = RelativePositionBias(window_size=self.patch_embed.patch_shape, num_heads=num_heads)
-        else:
-            self.rel_pos_bias = None
-
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
-        self.use_rel_pos_bias = use_rel_pos_bias
-        self.blocks = nn.ModuleList([
-            Block(
-                dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
-                drop=drop_rate, attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer,
-                init_values=init_values, window_size=self.patch_embed.patch_shape if use_rel_pos_bias else None)
-            for i in range(depth)])
-        self.norm = nn.Identity() if use_mean_pooling else norm_layer(embed_dim)
-        self.fc_norm = norm_layer(embed_dim) if use_mean_pooling else None
-        self.head = nn.Linear(embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
-        if self.pos_embed is not None:
-            self._trunc_normal_(self.pos_embed, std=.02)
-        self._trunc_normal_(self.cls_token, std=.02)
-        if num_classes > 0:
-            self._trunc_normal_(self.head.weight, std=.02)
-        self.apply(self._init_weights)
-        self.fix_init_weight()
-
-        if num_classes > 0:
-            self.head.weight.data.mul_(init_scale)
-            self.head.bias.data.mul_(init_scale)
-
-        self.patch_drop_ratio = 0.8
-        self.predictor_lg = PredictorLG(embed_dim=embed_dim)
-
-        self.use_grad = False
-        for param in self.predictor_lg.parameters():
-            param.requires_grad = False
-
-
-    def set_gate_learn(self, use_grad, optimizer):
-        if use_grad == self.use_grad:
-            return
-
-        # enable gradients
-        self.use_grad = use_grad
-        if self.use_grad:
-            for param in self.predictor_lg.parameters():
-                param.requires_grad = True
-
-            # add group to optimizer
-            lr = optimizer.param_groups[-1]['lr']
-            scale = 10.0
-            optimizer.add_param_group({
-                "group_name": "predictor_lg",
-                "weight_decay": 0.0,
-                "params": self.predictor_lg.parameters(),
-                "lr": lr * scale,
-                "lr_scale": scale,
-            })
-
-        # disable gradients
-        else:
-            for param in self.predictor_lg.parameters():
-                param.requires_grad = False
-            
-            # delete group from optimizer
-            for i, group in enumerate(optimizer.param_groups):
-                if group["group_name"] == "predictor_lg":
-                    # delete the group
-                    del optimizer.param_groups[i]
-                    break
-
-    
-    def set_patch_drop_ratio(self, ratio):
-        self.patch_drop_ratio = ratio
-
-    def set_patch_drop_func(self, func):
-        self.patch_drop_func = func
-
-    def _trunc_normal_(self, tensor, mean=0., std=1.):
-        trunc_normal_(tensor, mean=mean, std=std)
-
-    def fix_init_weight(self):
-        def rescale(param, layer_id):
-            param.div_(math.sqrt(2.0 * layer_id))
-
-        for layer_id, layer in enumerate(self.blocks):
-            rescale(layer.attn.proj.weight.data, layer_id + 1)
-            rescale(layer.mlp.fc2.weight.data, layer_id + 1)
-
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            self._trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
-        elif isinstance(m, nn.Conv2d):
-            self._trunc_normal_(m.weight, std=.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-
-    def get_num_layers(self):
-        return len(self.blocks)
-
-    @torch.jit.ignore
-    def no_weight_decay(self):
-        return {'pos_embed', 'cls_token'}
-
-    def get_classifier(self):
-        return self.head
-
-    def reset_classifier(self, num_classes, global_pool=''):
-        self.num_classes = num_classes
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
-
-    def forward_features(self, x):
-        x = self.patch_embed(x)
-        batch_size, _, _ = x.size()
-
-        cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-        x = torch.cat((cls_tokens, x), dim=1)
-        if self.pos_embed is not None:
-            x = x + self.pos_embed
-
-        # TODO: see if dropout still makes sense in this context
-        x = self.pos_drop(x)
-
-        # TODO: look into what rel_pos_bias is doing and if it is ever used..!
-        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
-        if rel_pos_bias is not None:
-            print("Error: currently don't know how to handle this!")
-            assert False
-         
-        # print(self.predictor_lg.out_conv[0].weight.data[0,0])
-        # print(self.patch_embed.proj.weight.data[0,0,0,0])
-        if self.patch_drop_ratio > 0.0 and not self.use_grad:
-            patch_info = get_patch_idxs(x, self.patch_drop_func, self.
-                                        patch_drop_ratio,
-                                        self.predictor_lg)
-            patch_idxs, idx_shape = patch_info
-            x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
-        elif self.patch_drop_ratio > 0.0 and self.use_grad:
-            x = soft_gate_patches(x, self.patch_drop_ratio, self.predictor_lg)
-            patch_info = None
-        else:
-            patch_info = None
-
-        for blk in self.blocks:
-            x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
-
-        x = self.norm(x)
-        if self.fc_norm is not None:
-            t = x[:, 1:, :]
-            return self.fc_norm(t.mean(1))
-        else:
-            return x[:, 0]
-
-
-    def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
-        return x
-
-
-    def get_patch_info(self, x):
-        x = self.patch_embed(x)
-        batch_size, _, _ = x.size()
-
-        cls_tokens = self.cls_token.expand(batch_size, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
-        x = torch.cat((cls_tokens, x), dim=1)
-        if self.pos_embed is not None:
-            x = x + self.pos_embed
-
-        # TODO: see if dropout still makes sense in this context
-        x = self.pos_drop(x)
-
-        # TODO: look into what rel_pos_bias is doing and if it is ever used..!
-        rel_pos_bias = self.rel_pos_bias() if self.rel_pos_bias is not None else None
-        if rel_pos_bias is not None:
-            print("Error: currently don't know how to handle this!")
-            assert False
-        
-        return get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-
-
-
 
 def build_fracpatch_vit(config):
     model = FracPatchVisionTransformer(
@@ -745,27 +505,4 @@ def build_fracpatch_vit(config):
         use_mean_pooling=config.MODEL.VIT.USE_MEAN_POOLING)
 
     print("here")
-    return model
-
-
-def build_fracpatchlg_vit(config):
-    model = FracPatchLGVisionTransformer(
-        img_size=config.DATA.IMG_SIZE,
-        patch_size=config.MODEL.VIT.PATCH_SIZE,
-        in_chans=config.MODEL.VIT.IN_CHANS,
-        num_classes=config.MODEL.NUM_CLASSES,
-        embed_dim=config.MODEL.VIT.EMBED_DIM,
-        depth=config.MODEL.VIT.DEPTH,
-        num_heads=config.MODEL.VIT.NUM_HEADS,
-        mlp_ratio=config.MODEL.VIT.MLP_RATIO,
-        qkv_bias=config.MODEL.VIT.QKV_BIAS,
-        drop_rate=config.MODEL.DROP_RATE,
-        drop_path_rate=config.MODEL.DROP_PATH_RATE,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        init_values=config.MODEL.VIT.INIT_VALUES,
-        use_abs_pos_emb=config.MODEL.VIT.USE_APE,
-        use_rel_pos_bias=config.MODEL.VIT.USE_RPB,
-        use_shared_rel_pos_bias=config.MODEL.VIT.USE_SHARED_RPB,
-        use_mean_pooling=config.MODEL.VIT.USE_MEAN_POOLING)
-
     return model
