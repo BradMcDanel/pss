@@ -5,7 +5,9 @@ import numpy as np
 import os
 import json
 import torch
+import time
 import torch.backends.cudnn as cudnn
+from fvcore.nn import FlopCountAnalysis
 
 from pathlib import Path
 
@@ -246,12 +248,35 @@ def main(args):
     model_without_ddp.load_state_dict(checkpoint['model'])
 
 
+    x = torch.randn(1, 3, args.input_size, args.input_size).to(device)
+    if type(model) in models.FRACPATCH_MODELS:
+        drop_ratios = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    else:
+        drop_ratios = [0.0]
+
+    if type(model) in models.FRACPATCH_MODELS:
+        model.set_patch_drop_func("magnitude")
+
     results = []
-    model.set_patch_drop_func("magnitude")
-    for drop_ratio in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
-        model.set_patch_drop_ratio(drop_ratio)
+    for drop_ratio in drop_ratios:
+        if type(model) in models.FRACPATCH_MODELS:
+            model.set_patch_drop_ratio(drop_ratio)
+
+        # compute flops
+        flops = FlopCountAnalysis(model, x)
+        flops = flops.total() / 1e9
+        print("Flops:", flops)
+
+        # compute throughput and accuracy
+        start_time = time.time()
         test_stats = evaluate(data_loader_val, model, device)
-        results.append({'drop_ratio': drop_ratio, 'acc1': test_stats['acc1']})
+        total_time = time.time() - start_time
+        throughput = len(dataset_val) / total_time
+        acc1 = test_stats['acc1']
+
+
+        print(f"drop ratio: {drop_ratio}, acc1: {acc1}, time: {total_time}, throughput: {throughput}, flops: {flops}")
+        results.append({'drop_ratio': drop_ratio, 'acc1': acc1, 'time': total_time, 'throughput': throughput, 'flops': flops})
         print(f"{drop_ratio}: {test_stats['acc1']:.1f}%")
 
     # get dir of args.resume

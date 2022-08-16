@@ -77,64 +77,30 @@ def deit_tiny_patch16_224(pretrained=False, **kwargs):
 
 
 @register_model
-def deit_small_patch16_224_256(pretrained=False, **kwargs):
+def deit_small_patch16_224_384(pretrained=False, **kwargs):
+    _ = kwargs.pop("img_size", 224)
     model = VisionTransformer(
-        patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
+        img_size=224, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
-    return model
-
-
-@register_model
-def deit_base_patch16_224_256(pretrained=False, **kwargs):
-    model = VisionTransformer(
-        img_size=224, patch_size=16, embed_dim=256, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
-    model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_base_patch16_224-b5f2ef4d.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
-    return model
-
-
-@register_model
-def fracpatch_deit_small_patch16_224_256(pretrained=False, **kwargs):
-    model = FracPatchVisionTransformer(
-        img_size=224, patch_size=16, embed_dim=256, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
-    model.default_cfg = _cfg()
-    if pretrained:
-        raise NotImplementedError("No pretrained weights available, check the documentation to see how to download them.")
 
     return model
 
 
 @register_model
-def deit_base_patch16_224_384(pretrained=False, **kwargs):
+def deit_small_patch16_384_384(pretrained=False, **kwargs):
+    _ = kwargs.pop("img_size", 224)
     model = VisionTransformer(
-        img_size=224, patch_size=16, embed_dim=384, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
+        img_size=384, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
     model.default_cfg = _cfg()
-    if pretrained:
-        checkpoint = torch.hub.load_state_dict_from_url(
-            url="https://dl.fbaipublicfiles.com/deit/deit_base_patch16_224-b5f2ef4d.pth",
-            map_location="cpu", check_hash=True
-        )
-        model.load_state_dict(checkpoint["model"])
+
     return model
 
 
 @register_model
 def fracpatch_deit_small_patch16_224_384(pretrained=False, **kwargs):
+    _ = kwargs.pop("img_size", 224)
     model = FracPatchVisionTransformer(
         img_size=224, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
@@ -143,3 +109,21 @@ def fracpatch_deit_small_patch16_224_384(pretrained=False, **kwargs):
         raise NotImplementedError("No pretrained weights available, check the documentation to see how to download them.")
 
     return model
+
+
+@register_model
+def fracpatch_deit_small_patch16_384_384(pretrained=False, **kwargs):
+    _ = kwargs.pop("img_size", 224)
+    model = FracPatchVisionTransformer(
+        img_size=384, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
+        norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
+    model.default_cfg = _cfg()
+    if pretrained:
+        raise NotImplementedError("No pretrained weights available, check the documentation to see how to download them.")
+
+    return model
+
+
+FRACPATCH_MODELS = [
+    FracPatchVisionTransformer,
+]

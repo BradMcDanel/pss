@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+from fvcore.nn import FlopCountAnalysis
 
 from timm.utils import accuracy, AverageMeter
 
@@ -77,7 +78,6 @@ def main(config):
     load_pretrained(config, model_without_ddp, logger)
 
     model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
-    print(model.module.patch_drop_func)
     drop_ratios = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     results = []
     for drop_ratio in drop_ratios:
@@ -109,6 +109,7 @@ def validate(config, data_loader, model, epoch=None):
     with torch.no_grad():
         end = time.time()
         for idx, (images, target) in enumerate(data_loader):
+
             images = images.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 

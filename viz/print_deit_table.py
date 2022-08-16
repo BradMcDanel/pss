@@ -5,8 +5,8 @@ from utils import load_jsonl, ema
 
 SECS_TO_HOUR = 3600
 
-ROOT = "/data/runs/deit/"
-runs = ["small", "small-baseline-v2", "small-cyclic-80-0-magnitude-v3"]
+ROOT = "/data/runs/fracpatch/scratch/"
+runs = ["224_384/baseline", "224_384/magnitude_cyclic_80_0", "384_384/magnitude_cyclic_80_0"]
 
 train_datas, val_datas = {}, {}
 for run in runs:

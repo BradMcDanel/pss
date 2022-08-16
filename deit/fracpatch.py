@@ -20,6 +20,11 @@ def get_patch_idxs(x, drop_func, drop_ratio, predictor_lg=None):
 
 def get_random_patches(x, drop_ratio):
     B, N, C = x.shape
+    # used during flop tracing
+    if type(N) == torch.Tensor:
+        N = N.item()
+        B = B.item()
+
     keep_point = int(round((1-drop_ratio)*N)) - 1
     keep_patches = torch.rand(B, N-1, device=x.device).argsort(dim=1) + 1
     keep_patches = keep_patches[:, :keep_point]
@@ -35,6 +40,11 @@ def get_random_patches(x, drop_ratio):
 
 def get_magnitude_patches(x, drop_ratio):
     B, N, C = x.shape
+    # used during flop tracing
+    if type(N) == torch.Tensor:
+        N = N.item()
+        B = B.item()
+ 
     keep_point = int(round((1-drop_ratio)*N)) - 1
 
     # sample patches using their l1 magnitude

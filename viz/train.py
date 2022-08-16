@@ -9,10 +9,8 @@ SECS_TO_HOUR = 3600
 
 
 ROOT = "/data/runs/fracpatch/finetune/vit-b/"
-# runs = ["baseline", "magnitude_cyclic_80_0", "random_cyclic_80_0", "magnitude_fixed_40"]
-runs = ["baseline", "magnitude_cyclic_80_0", "l2_magnitude_cyclic_80_0"]
-# ROOT = "/data/runs/deit"
-# runs = ["small-baseline-v2", "small-cyclic-80-0-magnitude-ft-v2"]
+runs = ["baseline", "random_fixed_40", "random_linear_80_0", "random_cyclic_80_0",
+        "magnitude_fixed_40", "magnitude_linear_80_0", "magnitude_cyclic_80_0"]
 train_datas, val_datas = {}, {}
 for run in runs:
     train_path = os.path.join(ROOT, run, "train_log.json")
@@ -20,8 +18,10 @@ for run in runs:
     train_datas[run] = load_jsonl(train_path)
     val_datas[run] = load_jsonl(val_path)
 
+
+N = len(ema(train_datas['baseline']['loss'], 0.9999))
 for run in runs:
-    plt.plot(ema(train_datas[run]['loss'], 0.9999), '-', linewidth=2, label=run)
+    plt.plot(ema(train_datas[run]['loss'], 0.9999)[:N], '-', linewidth=2, label=run)
 
 plt.title('ImageNet (VIT)')
 plt.xlabel('Training Iteration')

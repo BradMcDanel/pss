@@ -25,11 +25,16 @@ idx_to_class = {}
 for key, value in data["class_to_idx"].items():
     idx_to_class[value] = key
 
-# plot 4 images horizontally
+# plot 3 images horizontally
 num_drop_ratios = len(data["drop_ratios"])
-fig, axs = plt.subplots(4, num_drop_ratios, figsize=(20, 16), sharex=True)
+
+# drop index 2 from each list in data
+for key in data.keys():
+    data[key] = np.delete(data[key], 2, axis=0)
+
+fig, axs = plt.subplots(3, num_drop_ratios, figsize=(20, 16), sharex=True)
 for j in range(num_drop_ratios):
-    for i in range(4):
+    for i in range(3):
         # transpose to get the image in the correct order
         image = data["images"][i].transpose(1, 2, 0)
         # map image to 0-1
