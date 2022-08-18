@@ -1,100 +1,51 @@
-# Data-Efficient architectures and training for Image classification
+# DieT + PSS
 
-This repository contains PyTorch evaluation code, training code and pretrained models for the following papers:
-<details>
-<summary>
-  <a href="README_deit.md">DeiT</a> Data-Efficient Image Transformers, ICML 2021 [<b>bib</b>]
-</summary>
+This is a fork of the [DieT repository](https://github.com/facebookresearch/deit). Many of the files are not used, as we only explored PSS applied to the initial DieT version. The main modifications to the project are:
+- `fracpatch.py`: This is the main implementation of DeiT models with the inclusion of a Patch Sampling Scheduele. The patch sorting functions can be found near the top of the file. As noted in the paper, we include relative position embedding, as we find it dramatically improves the performance of ViT models.
+- `models.py`: We added several models based on the baseline deit models. For instance, `fracpatch_deit_small_patch16_224_384` generates a DeiT-S model with PSS included. We modified the names of the deit models in the original codebase to distinguish the two resolutions of DeiT-S models we trained in our work (224x224 and 384x384). Note that `FracPatch` models are our internal name for a modified version of a model to enable the use of a PSS.
+- `patch_scheduler.py`: This script implements the patch sampling schedules mentioned in the paper.
+- `main.py`: We modified this main training script to support the use of a PSS. The PSS is updated per training iteration using a `.step()` function.
 
-```
-@InProceedings{pmlr-v139-touvron21a,
-  title =     {Training data-efficient image transformers &amp; distillation through attention},
-  author =    {Touvron, Hugo and Cord, Matthieu and Douze, Matthijs and Massa, Francisco and Sablayrolles, Alexandre and Jegou, Herve},
-  booktitle = {International Conference on Machine Learning},
-  pages =     {10347--10357},
-  year =      {2021},
-  volume =    {139},
-  month =     {July}
-}
-```
-</details>
-<details>
-<summary>
-<a href="README_cait.md">CaiT</a> (Going deeper with Image Transformers), ICCV 2021  [<b>bib</b>]
-</summary>
+## Training
+First, check the `configs/` directory for training settings that are evaluated in the paper. For instance, the `configs/224_384` directory contains `baseline.sh` (DeiT-S-224) and `magnitude_cyclic_80_0.sh` (DeiT-S-224+PSS) scripts. The `data-path` and `output_dir` in each script should be modified according to your system.
 
-```
-@InProceedings{Touvron_2021_ICCV,
-    author    = {Touvron, Hugo and Cord, Matthieu and Sablayrolles, Alexandre and Synnaeve, Gabriel and J\'egou, Herv\'e},
-    title     = {Going Deeper With Image Transformers},
-    booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
-    month     = {October},
-    year      = {2021},
-    pages     = {32-42}
-}
-```
-</details>
-<details>
-<summary>
-<a href="README_resmlp.md">ResMLP</a> (ResMLP: Feedforward networks for image classification with data-efficient training) [<b>bib</b>]
-</summary>
+From the `simmim/` directory, do the following to train each model:
 
-```
-@article{touvron2021resmlp,
-  title={ResMLP: Feedforward networks for image classification with data-efficient training},
-  author={Hugo Touvron and Piotr Bojanowski and Mathilde Caron and Matthieu Cord and Alaaeldin El-Nouby and Edouard Grave and Gautier Izacard and Armand Joulin and Gabriel Synnaeve and Jakob Verbeek and Herv'e J'egou},
-  journal={arXiv preprint arXiv:2105.03404},
-  year={2021},
-}
-```
-</details>
-<details>
-<summary>
-<a href="README_patchconvnet.md">PatchConvnet</a> (Augmenting Convolutional networks with attention-based aggregation) [<b>bib</b>]
-</summary>
+### DieT-S-224
+`bash configs/224_384/baseline.sh`
 
-```
-@article{touvron2021patchconvnet,
-  title={Augmenting Convolutional networks with attention-based aggregation},
-  author={Hugo Touvron and Matthieu Cord and Alaaeldin El-Nouby and Piotr Bojanowski and Armand Joulin and Gabriel Synnaeve and Jakob Verbeek and Herve Jegou},
-  journal={arXiv preprint arXiv:2112.13692},
-  year={2021},
-}
-```
-</details>
-<details>
-<summary>
-<a href="README_3things.md">3Things</a> (Three things everyone should know about Vision Transformers) [<b>bib</b>]
-</summary>
+### DieT-S-224 + PSS
+`bash configs/224_384/magnitude_cyclic_80_0.sh`
 
-```
-@article{Touvron2022ThreeTE,
-  title={Three things everyone should know about Vision Transformers},
-  author={Hugo Touvron and Matthieu Cord and Alaaeldin El-Nouby and Jakob Verbeek and Herve Jegou},
-  journal={arXiv preprint arXiv:2203.09795},
-  year={2022},
-}
-```
-</details>
-<details>
-<summary>
-<a href="README_revenge.md">DeiT III</a> (DeiT III: Revenge of the ViT) [<b>bib</b>]
-</summary>
+### DieT-S-384
+`bash configs/384_384/baseline.sh`
 
+### DieT-S-384 + PSS
+`bash configs/384_384/magnitude_cyclic_80_0.sh`
+
+This will generate an output directory specified by `output_dir` which will store a `train_log.json` (updated per training iteration) and a `val_log.json` (updated per epoch). Additionally, it will save a `checkpoint.pth` for the last epoch and a `best_checkpoint.pth` for the best checkpoint found so far. In our evalutations, we use the `best_checkpoint.pth` for each model.
+
+## Validate
+You should be able to use the `--eval` with `main.py` as in the DeiT repository.
+
+## Experiments
+Here, we show how to generate data used for some of the figures in the paper. Refer to the `viz/` directory (in root of codebase) to see how these generated data files are used.
+
+- `image_patches.py`: This is used to generate image patch data (which patches are selected) for a given model and `\rho` combination. This will generate a `image_patches.json` file in the same directory as the checkpoint (`--resume`). To run this file, do:
 ```
-@article{Touvron2022DeiTIR,
-  title={DeiT III: Revenge of the ViT},
-  author={Hugo Touvron and Matthieu Cord and Herve Jegou},
-  journal={arXiv preprint arXiv:2204.07118},
-  year={2022},
-}
+python image_patches.py --model fracpatch_deit_small_patch16_224_384 \
+  --resume <checkpoint.pth path> \
+  --data-path <root imagenet path> \
+  --input-size 224 \
+  --batch-size 256 \
+  --num_workers 32
 ```
-</details>
-
-If you find this repository useful, please consider giving a star ⭐ and cite the relevant papers. 
-
-# License
-This repository is released under the Apache 2.0 license as found in the [LICENSE](LICENSE) file.
-
-# Contributing
-We actively welcome your pull requests! Please see [CONTRIBUTING.md](.github/CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md) for more info.
+- `sweep_drop.py`: This generated the dynamic inference curve that varies `\rho` to get an accuracy trade-off. Note that `num_workers` is set to 32 in order to ensure the model is not CPU bottlenecked. This will generate a `image_patches.json` file in the same directory as the checkpoint (`--resume`). To run this file, do:
+```
+python sweep_drop.py --model fracpatch_deit_small_patch16_224_384 \
+  --resume <checkpoint.pth path>
+  --data-path <root imagenet path> \
+  --input-size 224 \
+  --batch-size 256 \
+  --num_workers 32
+```
