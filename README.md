@@ -4,7 +4,7 @@ This codebase shows how to train and validate models trained under PSS. During d
 
 **AAAI Notes**:
 - Each DeiT-S model is around 350MB, which means we were unable to upload a single model as part of the submission.
-- As mentioned in the paper, we apply PSS to both SimMIM (`simmim/`) and DeiT (`deit`) models. Thus, we include both repositories as subdirectories in our codebase. Currently, we use duplicated files for PSS related code, but this will eventually be refactored into a standalone module.
+- As mentioned in the paper, we apply PSS to both SimMIM (`simmim/`) and DeiT (`deit/`) models. Thus, we include both repositories as subdirectories in our codebase. Currently, we use duplicated files for PSS related code, but this will eventually be refactored into a standalone module.
 - During training, we collect statistics in a json file call `train_log.json`. However, this file is around 150MB for a single training (for DeiT-S). Therefore, for have subsampled these training files so that you can review a snapshop of the training logs.
 - We provide most of the data necessary to reproduce the figures generated in the main paper and the appendix. Refer to the `viz/` directory for information on how to run each script. These scripts generate `.pdf` files that are saved in the `figures/` directory.
 
