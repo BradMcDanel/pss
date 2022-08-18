@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
+from fvcore.nn import FlopCountAnalysis
 
 from timm.utils import accuracy, AverageMeter
 
@@ -63,6 +64,11 @@ def parse_option():
 def main(config):
     dataset_train, dataset_val, data_loader_train, data_loader_val, mixup_fn = build_loader(config, logger, is_pretrain=False)
 
+    if config.MODEL.TYPE == "vit":
+        config.defrost()
+        config.MODEL.TYPE = "fracpatch_vit"
+        config.freeze()
+
     model = build_model(config, is_pretrain=False)
     model.cuda()
 
@@ -71,49 +77,79 @@ def main(config):
 
     load_pretrained(config, model_without_ddp, logger)
 
-    model.module.set_patch_drop_func("magnitude")
-    print(model.module.patch_drop_func)
-    # img_idxs = [502, 1502, 2502, 3502]
-    img_idxs = [514, 7221, 10421, 12510, 25510, 40510, 44321, 47221]
+    model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
     drop_ratios = [0.0, 0.2, 0.4, 0.6, 0.8]
     results = {
         "drop_ratios": drop_ratios,
-        "images": None,
-        "kept_patches": [],
-        "logits": [],
-        "class_to_idx": dataset_train.class_to_idx,
+        "counts": [],
     }
-
-    # empty tensor
-    all_images, all_targets = [], []
-    for idx in img_idxs:
-        image = dataset_val[idx][0]
-        target = dataset_val[idx][1]
-        all_images.append(image)
-        all_targets.append(target)
-
-    images = torch.stack(all_images).to("cuda")
-
-    results["images"] = images.cpu().numpy().tolist()
-    results["targets"] = all_targets
-
 
     for drop_ratio in drop_ratios:
         model.module.set_patch_drop_ratio(drop_ratio)
-        with torch.no_grad():
-            patch_idxs, idx_shape = model.module.get_patch_info(images)
-            results["kept_patches"].append((patch_idxs[0].cpu().numpy().tolist(), patch_idxs[1].cpu().numpy().tolist()))
-           
-            logits = model(images)
-            logits = logits.cpu().numpy().tolist()
-            results["logits"].append(logits)
+        for idx, (images, _) in enumerate(data_loader_val):
+            images = images.cuda(non_blocking=True)
+            patch_info = model.module.get_patch_info(images)
+            patch_idxs, idx_shape = patch_info
+            patch_pos = patch_idxs[1]
+            # remove cls token
+            patch_pos = patch_pos[patch_pos != 0] - 1
+            if drop_ratio == 0 and idx == 0:
+                minlength = patch_pos.max().item() + 1
+                
+            if idx == 0:
+                counts = torch.zeros(minlength, dtype=torch.int64, device="cpu")
+            
+            # bincount patch_pos and accumulate counts
+            counts += torch.bincount(patch_pos.cpu(), minlength=minlength)
+        
+        results["counts"].append(counts.numpy().tolist())
 
 
     # get dir of args.resume
-    save_path = os.path.join(config.OUTPUT, "image_patches.json")
-
+    save_path = os.path.join(config.OUTPUT, "patch_distribution.json")
     with open(save_path, 'w') as f:
         json.dump(results, f)
+
+
+@torch.no_grad()
+def validate(config, data_loader, model, epoch=None):
+    criterion = torch.nn.CrossEntropyLoss()
+    model.eval()
+
+    batch_time = AverageMeter()
+    loss_meter = AverageMeter()
+    acc1_meter = AverageMeter()
+    acc5_meter = AverageMeter()
+
+    with torch.no_grad():
+        end = time.time()
+        for idx, (images, target) in enumerate(data_loader):
+
+            images = images.cuda(non_blocking=True)
+            target = target.cuda(non_blocking=True)
+
+            # compute output
+            output = model(images)
+
+            # measure accuracy and record loss
+            loss = criterion(output, target)
+            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+
+            acc1 = reduce_tensor(acc1)
+            acc5 = reduce_tensor(acc5)
+            loss = reduce_tensor(loss)
+
+            loss_meter.update(loss.item(), target.size(0))
+            acc1_meter.update(acc1.item(), target.size(0))
+            acc5_meter.update(acc5.item(), target.size(0))
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+
+    logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
+    return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
 if __name__ == '__main__':

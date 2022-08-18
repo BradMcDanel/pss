@@ -1,5 +1,4 @@
 # --------------------------------------------------------
-# Copyright (C) 2022 Brad McDannel
 # SimMIM
 # Copyright (c) 2021 Microsoft
 # Licensed under The MIT License [see LICENSE for details]

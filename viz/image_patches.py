@@ -17,7 +17,6 @@ def get_xy_from_idxs(idxs, img_width):
 ROOT = "/data/runs/fracpatch/finetune/vit-b/magnitude_cyclic_80_0"
 with open(os.path.join(ROOT, "image_patches.json")) as f:
     data = json.load(f)
-    data["kept_patches"] = data["kept_patches"]
     data["images"] = np.array(data["images"])
 
 
@@ -25,16 +24,11 @@ idx_to_class = {}
 for key, value in data["class_to_idx"].items():
     idx_to_class[value] = key
 
-# plot 3 images horizontally
 num_drop_ratios = len(data["drop_ratios"])
 
-# drop index 2 from each list in data
-for key in data.keys():
-    data[key] = np.delete(data[key], 2, axis=0)
-
-fig, axs = plt.subplots(3, num_drop_ratios, figsize=(20, 16), sharex=True)
+fig, axs = plt.subplots(4, num_drop_ratios, figsize=(20, 16), sharex=True)
 for j in range(num_drop_ratios):
-    for i in range(3):
+    for i in range(4):
         # transpose to get the image in the correct order
         image = data["images"][i].transpose(1, 2, 0)
         # map image to 0-1
