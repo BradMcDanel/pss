@@ -5,7 +5,12 @@ We introduce the notion of a Patch Sampling Schedule (PSS), that varies the numb
 [preprint on arXiv]()
 
 
-![overview](../figures/overview.png)
+![Overview](https://github.com/BradMcDanel/pss/blob/main/figures/overview.png)
+
+![Training Times](https://github.com/BradMcDanel/pss/blob/main/figures/train-times.png)
+
+![Image Patches](https://github.com/BradMcDanel/pss/blob/main/figures/image-patches.png)
+
 
 
 ## Model Checkpoints and Logs
