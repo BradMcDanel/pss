@@ -452,7 +452,7 @@ def main(args):
 
 
     # Patch Drop settings
-    if type(model.module) == models.FracPatchVisionTransformer:
+    if type(model.module) == models.PSSVisionTransformer:
         model.module.set_patch_drop_func(args.patch_drop_func)
         patch_schedule = patch_scheduler.build_patch_scheduler(args, iterations_per_epoch)
     else:

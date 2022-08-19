@@ -72,7 +72,7 @@ def build_finetune_optimizer(config, model, logger):
         depths = config.MODEL.SWIN.DEPTHS
         num_layers = sum(depths)
         get_layer_func = partial(get_swin_layer, num_layers=num_layers + 2, depths=depths)
-    elif config.MODEL.TYPE in ['vit', 'fracpatch_vit', 'fracpatchlg_vit']:
+    elif config.MODEL.TYPE in ['vit', 'pss_vit']:
         num_layers = config.MODEL.VIT.DEPTH
         get_layer_func = partial(get_vit_layer, num_layers=num_layers + 2)
     else:

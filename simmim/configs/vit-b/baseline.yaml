@@ -1,6 +1,6 @@
 MODEL:
   TYPE: vit
-  NAME: fracpatch
+  NAME: pss
   DROP_PATH_RATE: 0.1
   VIT:
     EMBED_DIM: 768

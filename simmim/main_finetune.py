@@ -4,6 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ze Liu
 # Modified by Zhenda Xie
+# Patch sampling schedule by Bradley McDanel
 # --------------------------------------------------------
 
 import os
@@ -29,7 +30,7 @@ from logger import create_logger
 from utils import load_checkpoint, load_pretrained, save_checkpoint, get_grad_norm, auto_resume_helper, reduce_tensor
 from patch_scheduler import build_patch_scheduler
 
-FP_MODELS = ["fracpatch_vit", "fracpatchlg_vit"]
+PSS_MODELS = ["pss_vit"]
 
 try:
     # noinspection PyUnresolvedReferences
@@ -134,7 +135,7 @@ def main(config):
         return
 
 
-    if config.MODEL.TYPE in FP_MODELS:
+    if config.MODEL.TYPE in PSS_MODELS:
         logger.info(f'PATCH DROP FUNC: {config.TRAIN.PATCH_DROP_FUNC}')
         logger.info(f'PATCH DROP SCHEDULE: {config.TRAIN.PATCH_SCHEDULER.NAME}')
         model.module.set_patch_drop_func(config.TRAIN.PATCH_DROP_FUNC)
@@ -148,13 +149,13 @@ def main(config):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, logger)
 
 
-        if config.MODEL.TYPE  in FP_MODELS:
+        if config.MODEL.TYPE  in PSS_MODELS:
             # Set drop ratio to 0 for validation
             model.module.set_patch_drop_ratio(0.0)
 
         acc1, acc5, loss = validate(config, data_loader_val, model, epoch)
 
-        if config.MODEL.TYPE in FP_MODELS:
+        if config.MODEL.TYPE in PSS_MODELS:
             # Set back drop ratio to prior value
             model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
 
@@ -240,7 +241,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         torch.cuda.synchronize()
 
 
-        if config.MODEL.TYPE in FP_MODELS:
+        if config.MODEL.TYPE in PSS_MODELS:
             # set patch drop ratio
             model.module.set_patch_drop_ratio(patch_scheduler.get_patch_drop_ratio())
             patch_scheduler.step()
@@ -283,7 +284,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 'memory': memory_used,
             }
 
-            if config.MODEL.TYPE in FP_MODELS:
+            if config.MODEL.TYPE in PSS_MODELS:
                 train_info['patch_drop_ratio'] =  patch_scheduler.get_patch_drop_ratio()
             else:
                 train_info['patch_drop_ratio'] = 0

@@ -6,4 +6,4 @@ python -m torch.distributed.launch --nproc_per_node=4 --use_env main.py \
   --batch-size 128 \
   --input-size 224 \
   --data-path /data/datasets/imagenet \
-  --output_dir /data/runs/fracpatch/scratch/224_384/baseline 
+  --output_dir /data/runs/pss/scratch/224_384/baseline 

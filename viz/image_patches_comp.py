@@ -14,7 +14,7 @@ def get_xy_from_idxs(idxs, img_width):
         xy_idxs.append((x, y))
     return xy_idxs
 
-ROOT = "/data/runs/fracpatch/"
+ROOT = "/data/runs/pss/"
 runs = ["finetune/vit-b/magnitude_cyclic_80_0",
         "scratch/224_384/magnitude_cyclic_80_0",
         "scratch/384_384/magnitude_cyclic_80_0"]

@@ -7,7 +7,7 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 ROOT = "/data/runs/"
-runs = ["dynamicvit/deit-s", "fracpatch/scratch/224_384/magnitude_cyclic_80_0"]
+runs = ["dynamicvit/deit-s", "pss/scratch/224_384/magnitude_cyclic_80_0"]
 names = ["DynamicViT-S", "DieT-S+PSS"]
 colors = ["#6A3D9A", "#E31A1C"]
 hashes = ['o','s']

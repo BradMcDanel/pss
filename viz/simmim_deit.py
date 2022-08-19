@@ -8,7 +8,7 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 runs = ["/data/runs/deit/small-cyclic-80-0-magnitude-v3",
-        "/data/runs/fracpatch/deit/small/magnitude_cyclic_80_0"]
+        "/data/runs/pss/deit/small/magnitude_cyclic_80_0"]
 for run in runs:
     train_path = os.path.join(run, "train_log.json")
     train_data = load_jsonl(train_path)

@@ -8,7 +8,7 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 
-ROOT = "/data/runs/fracpatch/finetune/vit-b/"
+ROOT = "/data/runs/pss/finetune/vit-b/"
 runs = ["baseline", "random_fixed_40", "random_linear_80_0", "random_cyclic_80_0",
         "magnitude_fixed_40", "magnitude_linear_80_0", "magnitude_cyclic_80_0"]
 train_datas, val_datas = {}, {}

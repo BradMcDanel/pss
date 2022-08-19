@@ -249,17 +249,17 @@ def main(args):
 
 
     x = torch.randn(1, 3, args.input_size, args.input_size).to(device)
-    if type(model) in models.FRACPATCH_MODELS:
+    if type(model) in models.PSS_MODELS:
         drop_ratios = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     else:
         drop_ratios = [0.0]
 
-    if type(model) in models.FRACPATCH_MODELS:
+    if type(model) in models.PSS_MODELS:
         model.set_patch_drop_func("magnitude")
 
     results = []
     for drop_ratio in drop_ratios:
-        if type(model) in models.FRACPATCH_MODELS:
+        if type(model) in models.PSS_MODELS:
             model.set_patch_drop_ratio(drop_ratio)
 
         # compute flops

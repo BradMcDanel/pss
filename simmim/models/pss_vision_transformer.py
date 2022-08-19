@@ -318,9 +318,8 @@ class RelativePositionBias(nn.Module):
         return relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
 
 
-class FracPatchVisionTransformer(nn.Module):
-    """ Vision Transformer with support for patch or hybrid CNN input stage
-    """
+class PSSVisionTransformer(nn.Module):
+    """ Vision Transformer with support for PSS """
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, 
                  embed_dim=768, depth=12,
                  num_heads=12, mlp_ratio=4., qkv_bias=False, qk_scale=None, drop_rate=0., attn_drop_rate=0.,
@@ -484,8 +483,8 @@ class FracPatchVisionTransformer(nn.Module):
         return get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
 
 
-def build_fracpatch_vit(config):
-    model = FracPatchVisionTransformer(
+def build_pss_vit(config):
+    model = PSSVisionTransformer(
         img_size=config.DATA.IMG_SIZE,
         patch_size=config.MODEL.VIT.PATCH_SIZE,
         in_chans=config.MODEL.VIT.IN_CHANS,

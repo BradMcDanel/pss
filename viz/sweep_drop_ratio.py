@@ -6,7 +6,7 @@ plt = init_mpl()
 
 SECS_TO_HOUR = 3600
 
-ROOT = "/data/runs/fracpatch/finetune/vit-b"
+ROOT = "/data/runs/pss/finetune/vit-b"
 runs = ["baseline", "magnitude_fixed_40",
         "magnitude_linear_80_0", "magnitude_cyclic_80_0"]
 names = ["ViT-B", "+Fixed(0.6)", "+Linear(0.2, 1.0)", "+Cyclic(0.2, 1.0)"]

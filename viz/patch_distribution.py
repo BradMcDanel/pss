@@ -17,7 +17,7 @@ def get_xy_from_idxs(idxs, img_width):
         xy_idxs.append((x, y))
     return xy_idxs
 
-ROOT = "/data/runs/fracpatch/finetune/vit-b/magnitude_cyclic_80_0"
+ROOT = "/data/runs/pss/finetune/vit-b/magnitude_cyclic_80_0"
 with open(os.path.join(ROOT, "patch_distribution.json")) as f:
     data = json.load(f)
 

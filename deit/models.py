@@ -8,7 +8,7 @@ from timm.models.vision_transformer import VisionTransformer, _cfg
 from timm.models.registry import register_model
 from timm.models.layers import trunc_normal_
 
-from fracpatch import FracPatchVisionTransformer
+from pss import PSSVisionTransformer
 import patch_sampler
 
 __all__ = [
@@ -99,9 +99,9 @@ def deit_small_patch16_384_384(pretrained=False, **kwargs):
 
 
 @register_model
-def fracpatch_deit_small_patch16_224_384(pretrained=False, **kwargs):
+def pss_deit_small_patch16_224_384(pretrained=False, **kwargs):
     _ = kwargs.pop("img_size", 224)
-    model = FracPatchVisionTransformer(
+    model = PSSVisionTransformer(
         img_size=224, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
     model.default_cfg = _cfg()
@@ -112,9 +112,9 @@ def fracpatch_deit_small_patch16_224_384(pretrained=False, **kwargs):
 
 
 @register_model
-def fracpatch_deit_small_patch16_384_384(pretrained=False, **kwargs):
+def pss_deit_small_patch16_384_384(pretrained=False, **kwargs):
     _ = kwargs.pop("img_size", 224)
-    model = FracPatchVisionTransformer(
+    model = PSSVisionTransformer(
         img_size=384, patch_size=16, embed_dim=384, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         norm_layer=partial(nn.LayerNorm, eps=1e-6), use_rel_pos_bias=True, **kwargs)
     model.default_cfg = _cfg()
@@ -124,6 +124,6 @@ def fracpatch_deit_small_patch16_384_384(pretrained=False, **kwargs):
     return model
 
 
-FRACPATCH_MODELS = [
-    FracPatchVisionTransformer,
+PSS_MODELS = [
+    PSSVisionTransformer,
 ]

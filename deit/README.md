@@ -1,8 +1,8 @@
 # DieT + PSS
 
 This is a fork of the [DieT repository](https://github.com/facebookresearch/deit). Many of the files are not used, as we only explored PSS applied to the initial DieT version. The main modifications to the project are:
-- `fracpatch.py`: This is the main implementation of DeiT models with the inclusion of a Patch Sampling Scheduele. The patch sorting functions can be found near the top of the file. As noted in the paper, we include relative position embedding, as we find it dramatically improves the performance of ViT models.
-- `models.py`: We added several models based on the baseline deit models. For instance, `fracpatch_deit_small_patch16_224_384` generates a DeiT-S model with PSS included. We modified the names of the deit models in the original codebase to distinguish the two resolutions of DeiT-S models we trained in our work (224x224 and 384x384). Note that `FracPatch` models are our internal name for a modified version of a model to enable the use of a PSS.
+- `pss.py`: This is the main implementation of DeiT models with the inclusion of a Patch Sampling Scheduele. The patch sorting functions can be found near the top of the file. As noted in the paper, we include relative position embedding, as we find it dramatically improves the performance of ViT models.
+- `models.py`: We added several models based on the baseline deit models. For instance, `pss_deit_small_patch16_224_384` generates a DeiT-S model with PSS included. We modified the names of the deit models in the original codebase to distinguish the two resolutions of DeiT-S models we trained in our work (224x224 and 384x384). 
 - `patch_scheduler.py`: This script implements the patch sampling schedules mentioned in the paper.
 - `main.py`: We modified this main training script to support the use of a PSS. The PSS is updated per training iteration using a `.step()` function.
 
@@ -33,7 +33,7 @@ Here, we show how to generate data used for some of the figures in the paper. Re
 
 - `image_patches.py`: This is used to generate image patch data (which patches are selected) for a given model and `\rho` combination. This will generate a `image_patches.json` file in the same directory as the checkpoint (`--resume`). To run this file, do:
 ```
-python image_patches.py --model fracpatch_deit_small_patch16_224_384 \
+python image_patches.py --model pss_deit_small_patch16_224_384 \
   --resume <checkpoint.pth path> \
   --data-path <root imagenet path> \
   --input-size 224 \
@@ -42,7 +42,7 @@ python image_patches.py --model fracpatch_deit_small_patch16_224_384 \
 ```
 - `sweep_drop.py`: This generated the dynamic inference curve that varies `\rho` to get an accuracy trade-off. Note that `num_workers` is set to 32 in order to ensure the model is not CPU bottlenecked. This will generate a `image_patches.json` file in the same directory as the checkpoint (`--resume`). To run this file, do:
 ```
-python sweep_drop.py --model fracpatch_deit_small_patch16_224_384 \
+python sweep_drop.py --model pss_deit_small_patch16_224_384 \
   --resume <checkpoint.pth path>
   --data-path <root imagenet path> \
   --input-size 224 \

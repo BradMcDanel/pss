@@ -1,8 +1,8 @@
 # SimMIM + PSS
 
 This is a fork of the [SimMIM repository](https://github.com/microsoft/SimMIM). Many of the files are not used, as we only explored PSS applied to the initial ViT-B version (not Swin Transformer). The main modifications to the project are:
-- `models/fracpatch_vision_transformer.py`: This is the main implementation of ViT-B models with the inclusion of a Patch Sampling Scheduele. The patch sorting functions can be found near the top of the file. As noted in the paper, we include relative position embedding, as we find it dramatically improves the performance of ViT models.
-- Configuration changes: We had to make minor changes in many files to make the `FracPatch` model visible to the training script.
+- `models/pss_vision_transformer.py`: This is the main implementation of ViT-B models with the inclusion of a Patch Sampling Scheduele. The patch sorting functions can be found near the top of the file. As noted in the paper, we include relative position embedding, as we find it dramatically improves the performance of ViT models.
+- Configuration changes: We had to make minor changes in many files to make the `PSS` model visible to the training script.
 - `patch_scheduler.py`: This script implements the patch sampling schedules mentioned in the paper.
 - `main_finetune.py`: We modified this main training script to support the use of a PSS. The PSS is updated per training iteration using a `.step()` function.
 

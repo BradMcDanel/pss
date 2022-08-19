@@ -8,7 +8,7 @@ plt = init_mpl()
 SECS_TO_HOUR = 3600
 
 
-ROOT = "/data/runs/fracpatch/"
+ROOT = "/data/runs/pss/"
 runs = ["finetune/vit-b/baseline/", "finetune/vit-b/magnitude_cyclic_80_0",
         "scratch/224_384/baseline", "scratch/224_384/magnitude_cyclic_80_0",
         "scratch/384_384/magnitude_cyclic_80_0"]

@@ -66,7 +66,7 @@ def main(config):
 
     if config.MODEL.TYPE == "vit":
         config.defrost()
-        config.MODEL.TYPE = "fracpatch_vit"
+        config.MODEL.TYPE = "pss_vit"
         config.freeze()
 
     model = build_model(config, is_pretrain=False)
