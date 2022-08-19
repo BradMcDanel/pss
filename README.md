@@ -1,6 +1,12 @@
 # Accelerating Vision Transformer Training via a Patch Sampling Schedule (PSS)
 
-This codebase shows how to train and validate models trained with a Patch Sampling Scheduele (PSS).
+We introduce the notion of a Patch Sampling Schedule (PSS), that varies the number of Vision Transformer (ViT) patches used per batch during training. Since all patches are not equally important for most vision objectives (e.g., classification), we argue that less important patches can be used in fewer training iterations, leading to shorter training time with minimal impact on performance. Additionally, we observe that training with a PSS makes a ViT more robust to a wider patch sampling range during inference. This allows for a fine-grained, dynamic trade-off between throughput and accuracy during inference. We evaluate using PSSs on ViTs for ImageNet both trained from scratch and pre-trained using a reconstruction loss function. 
+
+[preprint on arXiv]()
+
+
+![overview](../figures/overview.png)
+
 
 ## Model Checkpoints and Logs
 Below are checkpoints and training/validation logs for baseline models and models + PSS. All training times are for a single machine with 4 A100 GPUs.
