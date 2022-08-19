@@ -1,11 +1,8 @@
 import math
-import os
 import numpy as np
 
 from utils import init_mpl
 plt = init_mpl()
-
-
 
 class LinearPatchScheduler:
     def __init__(self, start_patch_drop_ratio, end_patch_drop_ratio, 
@@ -110,10 +107,6 @@ class CyclicPatchScheduler:
         return curr_patch_ratio
 
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
 colors = ["#1F78B4", "#FF7F0F", "#33A02C", "#E31A1C"]
 hashes = ['o', '^', 'v', 's']
 
@@ -171,10 +164,8 @@ axs[0].plot([], [], "-", label='Baseline', color=colors[0], marker=hashes[0])
 axs[0].plot([], [], "-", label='Fixed(0.6)', color=colors[1], marker=hashes[1])
 axs[0].plot([], [], "-", label='Linear(0.2, 1.0)', color=colors[2], marker=hashes[2])
 
-# plt.plot(cyclic_ratios, label='cyclic')
 axs[0].set_xlabel("Training Epochs")
 axs[0].set_ylabel(r"Patch Keep Rate $\rho$")
-# axs[0].legend(loc=0)
 
 # plot cyclic on axs[1]
 cyclic_ratios = np.array(cyclic_ratios)
@@ -189,7 +180,6 @@ axs[1].plot(cyclic_ratios, color=colors[3], lw=2)
 axs[1].scatter(xs_hash, cyclic_hash, marker=hashes[3], color=colors[3])
 axs[1].plot([], [], "-", label='Cyclic(0.2, 1.0)', color=colors[3], marker=hashes[3], lw=2)
 axs[1].set_xlabel("One Epoch (iters)")
-# axs[1].legend(loc=0)
 
 # combine axs[0] and axs[1] legend and move legend to the right
 lines_labels = [ax.get_legend_handles_labels() for ax in axs]

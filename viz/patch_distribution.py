@@ -1,3 +1,4 @@
+import argparse
 import os
 import numpy as np
 import json
@@ -17,8 +18,13 @@ def get_xy_from_idxs(idxs, img_width):
         xy_idxs.append((x, y))
     return xy_idxs
 
-ROOT = "/data/runs/pss/finetune/vit-b/magnitude_cyclic_80_0"
-with open(os.path.join(ROOT, "patch_distribution.json")) as f:
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
+
+path = "pss/simmim/vit-b/magnitude_cyclic_80_0/patch_distribution.json"
+with open(os.path.join(args.data, path)) as f:
     data = json.load(f)
 
 num_drop_ratios = len(data["drop_ratios"]) - 1

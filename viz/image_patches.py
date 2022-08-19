@@ -1,3 +1,4 @@
+import argparse
 import os
 import numpy as np
 import json
@@ -5,6 +6,7 @@ import json
 from utils import init_mpl, load_imagenet_names
 plt = init_mpl()
 imagenet_names = load_imagenet_names()
+
 
 def get_xy_from_idxs(idxs, img_width):
     xy_idxs = []
@@ -14,8 +16,14 @@ def get_xy_from_idxs(idxs, img_width):
         xy_idxs.append((x, y))
     return xy_idxs
 
-ROOT = "/data/runs/pss/finetune/vit-b/magnitude_cyclic_80_0"
-with open(os.path.join(ROOT, "image_patches.json")) as f:
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
+
+path = "pss/simmim/vit-b/magnitude_cyclic_80_0/image_patches_single.json"
+
+with open(os.path.join(args.data, path)) as f:
     data = json.load(f)
     data["images"] = np.array(data["images"])
 

@@ -28,4 +28,4 @@ TRAIN:
   PATCH_DROP_FUNC: 'random'
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: finetune/vit-b/random_linear_80_0
+TAG: simmim/vit-b/random_linear_80_0

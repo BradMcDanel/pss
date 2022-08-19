@@ -7,21 +7,19 @@ This is a fork of the [DieT repository](https://github.com/facebookresearch/deit
 - `main.py`: We modified this main training script to support the use of a PSS. The PSS is updated per training iteration using a `.step()` function.
 
 ## Training
-First, check the `configs/` directory for training settings that are evaluated in the paper. For instance, the `configs/224_384` directory contains `baseline.sh` (DeiT-S-224) and `magnitude_cyclic_80_0.sh` (DeiT-S-224+PSS) scripts. The `data-path` and `output_dir` in each script should be modified according to your system.
-
-From the `simmim/` directory, do the following to train each model:
+First, check the `configs/` directory for training settings that are evaluated in the paper. For instance, the `configs/deit-s` directory contains `baseline.sh` (DeiT-S-224) and `magnitude_cyclic_80_0.sh` (DeiT-S-224+PSS) scripts. Each script requires two arguments, `<imagenet dir>` (path to imagenet) and `<output dir>` (root output directory). From the `simmim/` directory, do the following to train each model:
 
 ### DieT-S-224
-`bash configs/224_384/baseline.sh`
+`bash configs/224_384/baseline.sh <imagenet dir> <output dir>`
 
 ### DieT-S-224 + PSS
-`bash configs/224_384/magnitude_cyclic_80_0.sh`
+`bash configs/224_384/magnitude_cyclic_80_0.sh <imagenet dir> <output dir>`
 
 ### DieT-S-384
-`bash configs/384_384/baseline.sh`
+`bash configs/384_384/baseline.sh <imagenet dir> <output dir>`
 
 ### DieT-S-384 + PSS
-`bash configs/384_384/magnitude_cyclic_80_0.sh`
+`bash configs/384_384/magnitude_cyclic_80_0.sh <imagenet dir> <output dir>`
 
 This will generate an output directory specified by `output_dir` which will store a `train_log.json` (updated per training iteration) and a `val_log.json` (updated per epoch). Additionally, it will save a `checkpoint.pth` for the last epoch and a `best_checkpoint.pth` for the best checkpoint found so far. In our evalutations, we use the `best_checkpoint.pth` for each model.
 
@@ -35,7 +33,7 @@ Here, we show how to generate data used for some of the figures in the paper. Re
 ```
 python image_patches.py --model pss_deit_small_patch16_224_384 \
   --resume <checkpoint.pth path> \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --input-size 224 \
   --batch-size 256 \
   --num_workers 32
@@ -44,7 +42,7 @@ python image_patches.py --model pss_deit_small_patch16_224_384 \
 ```
 python sweep_drop.py --model pss_deit_small_patch16_224_384 \
   --resume <checkpoint.pth path>
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --input-size 224 \
   --batch-size 256 \
   --num_workers 32

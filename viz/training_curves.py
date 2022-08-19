@@ -1,24 +1,31 @@
+import argparse
 import os
 import numpy as np
 
 from utils import load_jsonl, ema, init_mpl
 plt = init_mpl()
 
-
 SECS_TO_HOUR = 3600
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
 
-ROOT = "/data/runs/pss/"
-runs = ["finetune/vit-b/baseline/", "finetune/vit-b/magnitude_cyclic_80_0",
-        "scratch/224_384/baseline", "scratch/224_384/magnitude_cyclic_80_0",
-        "scratch/384_384/magnitude_cyclic_80_0"]
+runs = [
+    "pss/simmim/vit-b/baseline/",
+    "pss/simmim/vit-b/magnitude_cyclic_80_0",
+    "pss/deit/deit-s-224/baseline",
+    "pss/deit/deit-s-224/magnitude_cyclic_80_0",
+    "pss/deit/deit-s-384/magnitude_cyclic_80_0"
+]
 names = ["ViT-B-224", "ViT-B-224+PSS", "DeiT-S-224", "DeiT-S-224+PSS", "DeiT-S-384+PSS"]
 colors = ["#1F78B4", "#FF7F00", "#A6CEE3", "#E31A1C", "#FB9A99"]
 
 train_datas, val_datas = {}, {}
 for run in runs:
-    train_path = os.path.join(ROOT, run, "train_log.json")
-    val_path = os.path.join(ROOT, run, "val_log.json")
+    train_path = os.path.join(args.data, run, "train_log.json")
+    val_path = os.path.join(args.data, run, "val_log.json")
     train_datas[run] = load_jsonl(train_path)
     val_datas[run] = load_jsonl(val_path)
 
@@ -27,7 +34,6 @@ fig, ax = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
 
 for i, run in enumerate(runs):
     if "384_384" in run or "vit-b" in run:
-        # average every two loss points, as the batch size was halved for these model
         loss = np.array(train_datas[run]["loss"])
         loss = (loss[::2] + loss[1::2]) / 2
     else:
@@ -35,10 +41,8 @@ for i, run in enumerate(runs):
     ax[0].plot(ema(loss, 0.9999), '-', linewidth=2, label=names[i], color=colors[i])
 
 ax[0].set_xlabel('Training Iteration')
-# set tick labels to scientific notation
 ax[0].ticklabel_format(style='sci', axis='x', scilimits=(0,0))
 ax[0].set_ylabel('Training Loss')
-# plt.legend(loc=0)
 
   
 for i, run in enumerate(runs):
@@ -47,8 +51,6 @@ for i, run in enumerate(runs):
 
 
 ax[1].set_xlabel('Training Time (Hours)')
-# plt.ylabel('Training Loss')
-# legend
 leg = ax[1].legend(loc=0)
 plt.savefig('../figures/training-loss.pdf', dpi=300, bbox_inches='tight')
 plt.clf()

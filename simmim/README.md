@@ -15,7 +15,7 @@ From the `simmim/` directory, do the following to train each model:
 ```
 python -m torch.distributed.launch --nproc_per_node 4 main_finetune.py  \
   --cfg configs/vit-b/baseline.yaml \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --pretrained <pretrained ViT-B SimMIM model> \
   --output <root output directory>
 ```
@@ -24,7 +24,7 @@ python -m torch.distributed.launch --nproc_per_node 4 main_finetune.py  \
 ```
 python -m torch.distributed.launch --nproc_per_node 4 main_finetune.py  \
   --cfg configs/vit-b/magnitude_cyclic_80_0.yaml \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --pretrained <pretrained ViT-B SimMIM model> \
   --output <root output directory>
 ```
@@ -33,7 +33,7 @@ python -m torch.distributed.launch --nproc_per_node 4 main_finetune.py  \
 ```
 python -m torch.distributed.launch --nproc_per_node 4 main_finetune.py  \
   --cfg configs/vit-b/magnitude_linear_80_0.yaml \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --pretrained <pretrained ViT-B SimMIM model> \
   --output <root output directory>
 ```
@@ -52,7 +52,7 @@ Here, we show how to generate data used for some of the figures in the paper. Re
 ```
 python -m torch.distributed.launch --nproc_per_node 1 image_patches.py \
   --cfg <config path used in training> \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --pretrained <checkpoint.pth path> \
   --output <root output directory>
 ```
@@ -60,7 +60,7 @@ python -m torch.distributed.launch --nproc_per_node 1 image_patches.py \
 ```
 python -m torch.distributed.launch --nproc_per_node 1 sweep_drop.py \
   --cfg <config path used in training> \
-  --data-path <root imagenet path> \
+  --data-path <imagenet dir> \
   --pretrained <checkpoint.pth path> \
   --output <root output directory>
 ```

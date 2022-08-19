@@ -1,19 +1,25 @@
+import argparse
 import os
+
 import numpy as np
 
-from utils import load_jsonl, init_mpl, ma
+from utils import load_jsonl, init_mpl
 plt = init_mpl()
 
 SECS_TO_HOUR = 3600
 ITERS_PER_BATCH = 2502
 
-ROOT = "/data/runs/pss/finetune/vit-b"
-runs = ["baseline", "magnitude_cyclic_80_0", "gate_cyclic_80_0"]
-names = ["ViT-B", "+Cyclic(0.2, 1.0)", "+Gated(0.2, 1.0)"]
-colors = ["#1F78B4", "#E31A1C", "#FF7F00"]
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
+
+runs = ["pss/simmim/vit-b/baseline", "pss/simmim/vit-b/magnitude_cyclic_80_0"]
+names = ["ViT-B", "+Cyclic(0.2, 1.0)"]
+colors = ["#1F78B4", "#E31A1C"]
 plt.figure(figsize=(8, 4))
 for i, run in enumerate(runs):
-    train_path = os.path.join(ROOT, run, "train_log.json")
+    train_path = os.path.join(args.data, run, "train_log.json")
     data = load_jsonl(train_path)
     # take second epoch (to avoid warm-up timing)
     times = data["time"][ITERS_PER_BATCH:2*ITERS_PER_BATCH]
@@ -28,7 +34,6 @@ for i, run in enumerate(runs):
     patch_keep_ratios = np.array(patch_keep_ratios)
     idxs = np.abs(times - np.mean(times)) < 3 * np.std(times)
     times = times[idxs]
-    times = ma(times)
     patch_keep_ratios = patch_keep_ratios[idxs]
 
     plt.plot(times, '-', linewidth=2, label=names[i], color=colors[i])

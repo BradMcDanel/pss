@@ -1,22 +1,27 @@
+import argparse
 import os
 import numpy as np
 
-from utils import load_jsonl, ema, init_mpl
+from utils import load_jsonl, init_mpl
 plt = init_mpl()
 
 
 SECS_TO_HOUR = 3600
 
-ROOT = "/data/runs/pss/finetune/vit-b"
-runs = ["baseline", "magnitude_cyclic_80_0"]
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
+
+runs = ["pss/simmim/vit-b/baseline", "pss/simmim/vit-b/magnitude_cyclic_80_0"]
 names = ["ViT-B", "+PSS"]
 colors = ["#1F78B4", "#E31A1C"]
 hashes = ['o', 's']
 train_datas, val_datas, sweep_datas = {}, {}, {}
 for run in runs:
-    train_datas[run] = load_jsonl(os.path.join(ROOT, run, "train_log.json"))
-    val_datas[run] = load_jsonl(os.path.join(ROOT, run, "val_log.json"))
-    sweep_datas[run] = load_jsonl(os.path.join(ROOT, run, "sweep_drop.json"))
+    train_datas[run] = load_jsonl(os.path.join(args.data, run, "train_log.json"))
+    val_datas[run] = load_jsonl(os.path.join(args.data, run, "val_log.json"))
+    sweep_datas[run] = load_jsonl(os.path.join(args.data, run, "sweep_drop.json"))
 
 
 # two subplots side by side

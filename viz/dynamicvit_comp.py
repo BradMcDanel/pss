@@ -1,19 +1,21 @@
+import argparse
 import os
-import numpy as np
 
-from utils import load_jsonl, ema, init_mpl
+from utils import load_jsonl, init_mpl
 plt = init_mpl()
 
-SECS_TO_HOUR = 3600
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
 
-ROOT = "/data/runs/"
-runs = ["dynamicvit/deit-s", "pss/scratch/224_384/magnitude_cyclic_80_0"]
+runs = ["dynamicvit/deit-s", "pss/deit/deit-s-224/magnitude_cyclic_80_0"]
 names = ["DynamicViT-S", "DieT-S+PSS"]
 colors = ["#6A3D9A", "#E31A1C"]
 hashes = ['o','s']
 plt.figure(figsize=(8, 5.5))
 for i, run in enumerate(runs):
-    train_path = os.path.join(ROOT, run, "sweep_drop.json")
+    train_path = os.path.join(args.data, run, "sweep_drop.json")
     data = load_jsonl(train_path)
     keep_ratios = [1 - drop_ratio for drop_ratio in data["drop_ratio"]]
     plt.plot(keep_ratios, data["acc1"],
@@ -32,9 +34,7 @@ for i, run in enumerate(runs):
 plt.title('Dynamic Inference Performance')
 plt.xlabel(r'Patch Keep Rate $\rho$')
 plt.ylabel('Validation Acc. (%)')
-# plt.ylim(0.6, 1.0)
 plt.ylim((70, 81))
-# plt.xlim((0.375, 1.025))
 plt.gca().invert_xaxis()
 plt.legend(loc=0)
 plt.tight_layout()

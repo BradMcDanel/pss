@@ -22,4 +22,4 @@ TRAIN:
   LAYER_DECAY: 0.65
 PRINT_FREQ: 100
 SAVE_FREQ: 25
-TAG: finetune/vit-b/baseline
+TAG: simmim/vit-b/baseline

@@ -1,3 +1,4 @@
+import argparse
 import os
 import numpy as np
 import json
@@ -5,6 +6,12 @@ import json
 from utils import init_mpl, load_imagenet_names
 plt = init_mpl()
 imagenet_names = load_imagenet_names()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--data', type=str, required=True,
+                    help="root model/output dir")
+args = parser.parse_args()
+
 
 def get_xy_from_idxs(idxs, img_width):
     xy_idxs = []
@@ -14,15 +21,14 @@ def get_xy_from_idxs(idxs, img_width):
         xy_idxs.append((x, y))
     return xy_idxs
 
-ROOT = "/data/runs/pss/"
-runs = ["finetune/vit-b/magnitude_cyclic_80_0",
-        "scratch/224_384/magnitude_cyclic_80_0",
-        "scratch/384_384/magnitude_cyclic_80_0"]
+runs = ["pss/simmim/vit-b/magnitude_cyclic_80_0",
+        "pss/deit/deit-s-224/magnitude_cyclic_80_0",
+        "pss/deit/deit-s-384/magnitude_cyclic_80_0"]
 names = ["ViT-B-224+PSS", "DeiT-S-224+PSS", "DeiT-S-384+PSS"]
 
 data = []
 for run in runs:
-    with open(os.path.join(ROOT, run, "image_patches.json")) as f:
+    with open(os.path.join(args.data, run, "image_patches.json")) as f:
         data.append(json.load(f))
         data[-1]["images"] = np.array(data[-1]["images"])
 
