@@ -2,7 +2,7 @@
 
 We introduce the notion of a Patch Sampling Schedule (PSS), that varies the number of Vision Transformer (ViT) patches used per batch during training. Since all patches are not equally important for most vision objectives (e.g., classification), we argue that less important patches can be used in fewer training iterations, leading to shorter training time with minimal impact on performance. Additionally, we observe that training with a PSS makes a ViT more robust to a wider patch sampling range during inference. This allows for a fine-grained, dynamic trade-off between throughput and accuracy during inference. We evaluate using PSSs on ViTs for ImageNet both trained from scratch and pre-trained using a reconstruction loss function. 
 
-[preprint on arXiv (coming soon)]()
+[preprint on arXiv](http://arxiv.org/abs/2208.09520)
 
 
 ![Overview](https://github.com/BradMcDanel/pss/blob/main/figures/overview.png)
