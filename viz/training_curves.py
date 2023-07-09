@@ -17,10 +17,11 @@ runs = [
     "pss/simmim/vit-b/magnitude_cyclic_80_0",
     "pss/deit/deit-s-224/baseline",
     "pss/deit/deit-s-224/magnitude_cyclic_80_0",
-    "pss/deit/deit-s-384/magnitude_cyclic_80_0"
+    #"pss/deit/deit-s-384/magnitude_cyclic_80_0",
+    "pss/deit/deit-s-224/magnitude_merge_cyclic_80_0"
 ]
-names = ["ViT-B-224", "ViT-B-224+PSS", "DeiT-S-224", "DeiT-S-224+PSS", "DeiT-S-384+PSS"]
-colors = ["#1F78B4", "#FF7F00", "#A6CEE3", "#E31A1C", "#FB9A99"]
+names = ["ViT-B-224", "ViT-B-224+PSS", "DeiT-S-224", "DeiT-S-224+PSS", "merge"]
+colors = ["#1F78B4", "#FF7F00", "#A6CEE3", "#E31A1C", "k"]
 
 train_datas, val_datas = {}, {}
 for run in runs:

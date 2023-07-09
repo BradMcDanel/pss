@@ -15,6 +15,8 @@ def get_patch_idxs(x, drop_func, drop_ratio, predictor_lg=None):
         return get_random_patches(x, drop_ratio)
     elif drop_func == "magnitude":
         return get_magnitude_patches(x, drop_ratio)
+    elif drop_func == "magnitude_merge":
+        return get_magnitude_merge_patches(x, drop_ratio)
     else:
         raise NotImplementedError
 
@@ -36,7 +38,6 @@ def get_random_patches(x, drop_ratio):
     patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
 
     return (batch_idxs, patch_idxs), (B, keep_point + 1)
-
 
 def get_magnitude_patches(x, drop_ratio):
     B, N, C = x.shape
@@ -60,8 +61,42 @@ def get_magnitude_patches(x, drop_ratio):
     batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
     patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
 
-
     return (batch_idxs, patch_idxs), (B, keep_point + 1)
+
+def get_magnitude_merge_patches(x, merge_ratio):
+    B, N, C = x.shape
+    # used during flop tracing
+    if isinstance(N, torch.Tensor):
+        N = N.item()
+    if isinstance(B, torch.Tensor):
+        B = B.item()
+
+    keep_point = int(round((1-merge_ratio)*N)) - 2  # -2 to account for the merged patch
+
+    # sample patches using their l1 magnitude
+    sample_mat = x[:, 1:].abs().sum(dim=2)
+    sample_mat = sample_mat / torch.sum(sample_mat, dim=1, keepdim=True)
+
+    # Get the indexes of patches to keep and to merge
+    sorted_patches = sample_mat.argsort(dim=1, descending=True) + 1
+    keep_patches = sorted_patches[:, :keep_point]
+    merge_patches = sorted_patches[:, keep_point:]
+
+    # Do not drop cls patch
+    cls_idx = torch.zeros((B, 1), device=keep_patches.device, dtype=keep_patches.dtype)
+
+    keep_batch_idxs = torch.arange(B, device=x.device).repeat_interleave(keep_point + 1)
+    merge_batch_idxs = torch.arange(B, device=x.device).repeat_interleave(merge_patches.shape[1])
+
+    keep_patch_idxs = torch.cat((cls_idx, keep_patches), dim=1).view(-1)
+    merge_patch_idxs = merge_patches.reshape(-1)
+
+    return {
+        'keep_idxs': (keep_batch_idxs, keep_patch_idxs),
+        'merge_idxs': (merge_batch_idxs, merge_patch_idxs),
+        'keep_dim_info': (B, 1 + keep_patches.shape[1]),
+        'merge_dim_info': (B, merge_patches.shape[1])
+    }
 
 
 class Mlp(nn.Module):
@@ -157,15 +192,42 @@ class Attention(nn.Module):
                     self.window_size[0] * self.window_size[1] + 1, -1)  # Wh*Ww,Wh*Ww,nH
 
             if patch_info is not None:
-                patch_idxs, idx_shape = patch_info
-                nP = idx_shape[1]
-                relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
-                B, WH, _, nH = relative_position_bias.shape
-                relative_position_bias = relative_position_bias[patch_idxs[0], patch_idxs[1]]
-                relative_position_bias = relative_position_bias.view(B, nP, WH, nH)
-                relative_position_bias = relative_position_bias[patch_idxs[0], :, patch_idxs[1]]
-                relative_position_bias = relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
-                attn = attn + relative_position_bias
+                keep_idxs = patch_info['keep_idxs']
+                merge_idxs = patch_info['merge_idxs']
+                keep_dim_info = patch_info['keep_dim_info']
+                merge_dim_info = patch_info['merge_dim_info']
+
+                nP = keep_dim_info[1]
+                keep_relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+                B, WH, _, nH = keep_relative_position_bias.shape
+                keep_relative_position_bias = keep_relative_position_bias[keep_idxs[0], keep_idxs[1]]
+                keep_relative_position_bias = keep_relative_position_bias.view(B, nP, WH, nH)
+                keep_relative_position_bias = keep_relative_position_bias[keep_idxs[0], :, keep_idxs[1]]
+                keep_relative_position_bias = keep_relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
+
+                nP = merge_dim_info[1]
+                merge_relative_position_bias = relative_position_bias.unsqueeze(0).repeat(B, 1, 1, 1)
+                B, WH, _, nH = merge_relative_position_bias.shape
+                merge_relative_position_bias = merge_relative_position_bias[merge_idxs[0], merge_idxs[1]]
+                merge_relative_position_bias = merge_relative_position_bias.view(B, nP, WH, nH)
+                merge_relative_position_bias = merge_relative_position_bias[merge_idxs[0], :, merge_idxs[1]]
+                merge_relative_position_bias = merge_relative_position_bias.view(B, nP, nP, nH).permute(0, 3, 2, 1)
+
+                # take mean of dim2 and 3 for merge_relative_position_bias
+                merge_relative_position_bias = merge_relative_position_bias.mean(dim=2).mean(dim=2).unsqueeze(2).unsqueeze(3)
+                
+                merge_relative_position_bias_expanded_for_row = merge_relative_position_bias.expand(-1, -1, 1, keep_dim_info[1])
+
+                # expand merge_relative_position_bias to [256, 6, 1, 39] for adding as a column
+                merge_relative_position_bias_expanded_for_column = merge_relative_position_bias.expand(-1, -1, 1, keep_dim_info[1] + 1)
+
+                # append it to keep_relative_position_bias as the last row
+                result = torch.cat([keep_relative_position_bias, merge_relative_position_bias_expanded_for_row], dim=2)
+
+                # append it to the result as the last column
+                result = torch.cat([result, merge_relative_position_bias_expanded_for_column.transpose(2,3)], dim=3)
+
+                attn = attn + result
             else:
                 relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
                 attn = attn + relative_position_bias.unsqueeze(0)
@@ -180,6 +242,7 @@ class Attention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
+
 
 
 class Block(nn.Module):
@@ -392,16 +455,26 @@ class PSSVisionTransformer(nn.Module):
         if rel_pos_bias is not None:
             print("Error: currently don't know how to handle this!")
             assert False
-        
+
+
         if self.patch_drop_ratio > 0.0:
             patch_info = get_patch_idxs(x, self.patch_drop_func, self.patch_drop_ratio)
-            patch_idxs, idx_shape = patch_info
-            x = x[patch_idxs[0], patch_idxs[1]].view(idx_shape[0], idx_shape[1], -1)
+            if "merge" in self.patch_drop_func:
+                kept_patches = x[patch_info['keep_idxs'][0], patch_info['keep_idxs'][1]].view(patch_info['keep_dim_info'][0], patch_info['keep_dim_info'][1], -1)
+                # Get the patches to merge
+                merge_patches = x[patch_info['merge_idxs'][0], patch_info['merge_idxs'][1]].view(patch_info['merge_dim_info'][0], patch_info['merge_dim_info'][1], -1)
+                # Merge the patches
+                merged_patch = merge_patches.mean(dim=1, keepdim=True)
+
+                x = torch.cat([kept_patches, merged_patch], dim=1)
+            else:
+                x = x[patch_info['keep_idxs'][0], patch_info['keep_idxs'][1]].view(patch_info['keep_dim_info'][0], patch_info['keep_dim_info'][1], -1)
         else:
             patch_info = None
 
         for blk in self.blocks:
             x = blk(x, patch_info, rel_pos_bias=rel_pos_bias)
+            
 
         x = self.norm(x)
         if self.fc_norm is not None:

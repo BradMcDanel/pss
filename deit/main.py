@@ -20,12 +20,10 @@ from timm.utils import NativeScaler, get_state_dict, ModelEma
 
 from datasets import build_dataset
 from engine import train_one_epoch, evaluate
-from losses import DistillationLoss
 from samplers import RASampler
 from augment import new_data_aug_generator
 
 import models
-import models_v2
 
 import utils
 import patch_scheduler
@@ -190,7 +188,7 @@ def get_args_parser():
     parser.add_argument('--patch-scheduler-cooldown-epochs', default=0, type=int,
                         help='patch cooldown epochs')
     parser.add_argument('--patch-drop-func', default='random',
-                        choices=['random', 'magnitude'],
+                        choices=['random', 'magnitude', 'magnitude_merge'],
                         help='patch drop function')
 
     return parser

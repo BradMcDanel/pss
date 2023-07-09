@@ -14,29 +14,38 @@ parser.add_argument('--data', type=str, required=True,
                     help="root model/output dir")
 args = parser.parse_args()
 
-runs = ["pss/simmim/vit-b/baseline", "pss/simmim/vit-b/magnitude_cyclic_80_0"]
-names = ["ViT-B", "+Cyclic(0.2, 1.0)"]
-colors = ["#1F78B4", "#E31A1C"]
+#runs = ["pss/simmim/vit-b/baseline", "pss/simmim/vit-b/magnitude_cyclic_80_0"]
+#names = ["ViT-B", "+Cyclic(0.2, 1.0)"]
+#colors = ["#1F78B4", "#E31A1C"]
+
+runs = [
+        "pss/deit/deit-s-224/baseline",
+        "pss/deit/deit-s-224/magnitude_cyclic_80_0",
+        "pss/deit/deit-s-224/magnitude_merge_cyclic_80_0",
+]
+names = ["DeiT-S", "+Cyclic(0.2, 1.0)", "+CyclicMerge(0.2, 1.0)"]
+colors = ["#1F78B4", "#E31A1C", "k"]
 plt.figure(figsize=(8, 4))
 for i, run in enumerate(runs):
     train_path = os.path.join(args.data, run, "train_log.json")
     data = load_jsonl(train_path)
     # take second epoch (to avoid warm-up timing)
     times = data["time"][ITERS_PER_BATCH:2*ITERS_PER_BATCH]
-    patch_keep_ratios = data["patch_drop_ratio"][ITERS_PER_BATCH:2*ITERS_PER_BATCH]
-    patch_keep_ratios = [1 - p for p in patch_keep_ratios]
+    #patch_keep_ratios = data["patch_drop_ratio"][ITERS_PER_BATCH:2*ITERS_PER_BATCH]
+    #patch_keep_ratios = [1 - p for p in patch_keep_ratios]
 
     # convert to ms
     times = [1000 * t for t in times]
 
     # remove large outliers with numpy
     times = np.array(times)
-    patch_keep_ratios = np.array(patch_keep_ratios)
+    #patch_keep_ratios = np.array(patch_keep_ratios)
     idxs = np.abs(times - np.mean(times)) < 3 * np.std(times)
     times = times[idxs]
-    patch_keep_ratios = patch_keep_ratios[idxs]
+    #patch_keep_ratios = patch_keep_ratios[idxs]
 
     plt.plot(times, '-', linewidth=2, label=names[i], color=colors[i])
+    continue
 
     # find indexs where patch_keep_ratio changes
     if i == 1:
